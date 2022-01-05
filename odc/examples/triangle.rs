@@ -1,6 +1,6 @@
+use odc::{TriangleRenderer, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use odc::{TriangleRenderer, WindowSize};
 
 fn main() {
     env_logger::init();
@@ -18,7 +18,7 @@ fn main() {
             } => {
                 let size = WindowSize(size.width, size.height);
                 renderer.resize(size);
-            },
+            }
             Event::RedrawRequested(_) => {
                 renderer.render_triangle();
             }
