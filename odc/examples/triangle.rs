@@ -22,6 +22,10 @@ fn main() {
             Event::RedrawRequested(_) => {
                 renderer.render_triangle();
             }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *flow = ControlFlow::Exit,
             _ => {}
         }
     });

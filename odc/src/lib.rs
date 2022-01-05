@@ -1,13 +1,20 @@
 use raw_window_handle::HasRawWindowHandle;
 use std::borrow::Cow;
 use wgpu::{
-    Adapter, Backends, Device, DeviceDescriptor, FragmentState, Instance, Limits, PipelineLayout,
-    PipelineLayoutDescriptor, PresentMode, PrimitiveState, Queue, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
-    ShaderSource, Surface, SurfaceConfiguration, TextureFormat, TextureUsages, VertexState,
+    Adapter, Backends, Color, CommandBuffer, Device, DeviceDescriptor, FragmentState, Instance,
+    Limits, LoadOp, Operations, PipelineLayout, PresentMode, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor, ShaderSource, Surface,
+    SurfaceConfiguration, TextureFormat, TextureUsages, TextureView, VertexState,
 };
 
-pub struct TriangleRenderer {}
+pub struct TriangleRenderer {
+    surface: Surface,
+    swapchain_format: TextureFormat,
+    device: Device,
+    queue: Queue,
+    pipeline: RenderPipeline,
+}
 
 impl TriangleRenderer {
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
@@ -27,15 +34,32 @@ impl TriangleRenderer {
             present_mode: PresentMode::Mailbox,
         };
         surface.configure(&device, &config);
-        Self {}
+        Self {
+            surface,
+            swapchain_format,
+            device,
+            queue,
+            pipeline,
+        }
     }
 
     pub fn render_triangle(&self) {
-        todo!()
+        let frame = self.surface.get_current_texture().unwrap();
+        let view = frame.texture.create_view(&Default::default());
+        let cmd_buffer = self.prepare_cmd_buffer(&view);
+        self.queue.submit(Some(cmd_buffer));
+        frame.present();
     }
 
     pub fn resize(&mut self, size: WindowSize) {
-        todo!()
+        let config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: self.swapchain_format,
+            width: size.0,
+            height: size.1,
+            present_mode: PresentMode::Mailbox,
+        };
+        self.surface.configure(&self.device, &config);
     }
 
     fn request_adapter(instance: &Instance, surface: &Surface) -> Adapter {
@@ -98,6 +122,31 @@ impl TriangleRenderer {
         };
 
         device.create_render_pipeline(&descriptor)
+    }
+
+    fn prepare_cmd_buffer(&self, view: &TextureView) -> CommandBuffer {
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+
+        let attachment = RenderPassColorAttachment {
+            view,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+        let attachments = [attachment];
+        let color_attachments = &attachments;
+        let render_pass_descriptor = RenderPassDescriptor {
+            color_attachments,
+            ..Default::default()
+        };
+        {
+            let mut render_pass = encoder.begin_render_pass(&render_pass_descriptor);
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.draw(0..3, 0..1);
+        }
+        encoder.finish()
     }
 }
 
