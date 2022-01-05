@@ -1,8 +1,9 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+pub struct TriangleRenderer {}
+
+impl TriangleRenderer {
+    pub fn render_triangle() {
+        todo!()
     }
 }
+
+
