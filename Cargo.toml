@@ -2,3 +2,5 @@
 members = [
     "odc"
 ]
+
+resolver = "2"
