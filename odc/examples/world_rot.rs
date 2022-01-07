@@ -1,5 +1,7 @@
-use glam::Mat4;
-use odc::{RenderInfo, TriangleRenderer, WindowSize};
+use glam::{Mat4, Vec3};
+use odc::{RenderInfo, Transform, TriangleRenderer, WindowSize};
+use std::f32::consts::PI;
+use std::time::Instant;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -10,6 +12,7 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
     let mut renderer = TriangleRenderer::new(&window, size);
+    let rotation = Rotation::default();
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -22,7 +25,7 @@ fn main() {
             }
             Event::MainEventsCleared => {
                 let info = RenderInfo {
-                    world: Mat4::IDENTITY.to_cols_array_2d(),
+                    world: rotation.transform(),
                 };
                 renderer.render_triangle(&info);
             }
@@ -33,4 +36,26 @@ fn main() {
             _ => {}
         }
     });
+}
+
+struct Rotation {
+    start: Instant,
+}
+
+impl Default for Rotation {
+    fn default() -> Self {
+        Self {
+            start: Instant::now(),
+        }
+    }
+}
+
+impl Rotation {
+    pub fn transform(&self) -> Transform {
+        let elapsed = (Instant::now() - self.start).as_secs_f32();
+        let angle = (2.0 * PI * elapsed) % (2.0 * PI);
+        let rotation = Mat4::from_rotation_z(angle);
+        let scale = Mat4::from_scale(Vec3::new(0.5, 0.5, 0.5));
+        (rotation * scale).to_cols_array_2d()
+    }
 }
