@@ -1,11 +1,16 @@
 use raw_window_handle::HasRawWindowHandle;
 use std::borrow::Cow;
+use std::mem;
+use std::num::NonZeroU64;
 use wgpu::{
-    Adapter, Backends, Color, CommandBuffer, Device, DeviceDescriptor, FragmentState, Instance,
-    Limits, LoadOp, Operations, PipelineLayout, PresentMode, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor, ShaderSource, Surface,
-    SurfaceConfiguration, TextureFormat, TextureUsages, TextureView, VertexState,
+    Adapter, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferAddress,
+    BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandBuffer, Device,
+    DeviceDescriptor, FragmentState, Instance, Limits, LoadOp, Operations, PipelineLayout,
+    PipelineLayoutDescriptor, PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor,
+    RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface, SurfaceConfiguration,
+    TextureFormat, TextureUsages, TextureView, VertexState,
 };
 
 pub struct TriangleRenderer {
@@ -14,6 +19,8 @@ pub struct TriangleRenderer {
     device: Device,
     queue: Queue,
     pipeline: RenderPipeline,
+    uniform: Buffer,
+    uniform_binding: BindGroup,
 }
 
 impl TriangleRenderer {
@@ -22,10 +29,15 @@ impl TriangleRenderer {
         let surface = unsafe { instance.create_surface(&window) };
         let adapter = Self::request_adapter(&instance, &surface);
         let (device, queue) = Self::request_device(&adapter);
+        let uniform = Self::create_uniform_buffer(&device);
+        let uniform_layout = Self::create_uniform_layout(&device);
+        let uniform_binding = Self::create_uniform_binding(&device, &uniform, &uniform_layout);
+
         let shader = Self::create_shader(&device);
-        let pipeline_layout = device.create_pipeline_layout(&Default::default());
+        let pipeline_layout = Self::create_pipeline_layout(&device, &uniform_layout);
         let swapchain_format = surface.get_preferred_format(&adapter).unwrap();
         let pipeline = Self::create_pipeline(&device, &pipeline_layout, &shader, &swapchain_format);
+
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: swapchain_format,
@@ -33,6 +45,7 @@ impl TriangleRenderer {
             height: size.1,
             present_mode: PresentMode::Mailbox,
         };
+
         surface.configure(&device, &config);
         Self {
             surface,
@@ -40,10 +53,17 @@ impl TriangleRenderer {
             device,
             queue,
             pipeline,
+            uniform,
+            uniform_binding,
         }
     }
 
-    pub fn render_triangle(&self) {
+    pub fn render_triangle(&self, info: &RenderInfo) {
+        self.queue.write_buffer(
+            &self.uniform,
+            0,
+            bytemuck::cast_slice(info.world.as_slice()),
+        );
         let frame = self.surface.get_current_texture().unwrap();
         let view = frame.texture.create_view(&Default::default());
         let cmd_buffer = self.prepare_cmd_buffer(&view);
@@ -91,6 +111,38 @@ impl TriangleRenderer {
         device.create_shader_module(&descriptor)
     }
 
+    fn uniform_size() -> NonZeroU64 {
+        NonZeroU64::new(mem::size_of::<Transform>() as _).expect("Zero sized uniform")
+    }
+
+    fn create_uniform_layout(device: &Device) -> BindGroupLayout {
+        let uniform_entry = BindGroupLayoutEntry {
+            binding: 0,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: Some(Self::uniform_size()),
+            },
+            count: None,
+            visibility: ShaderStages::VERTEX,
+        };
+        let descriptor = BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[uniform_entry],
+        };
+        device.create_bind_group_layout(&descriptor)
+    }
+
+    fn create_pipeline_layout(device: &Device, uniform_layout: &BindGroupLayout) -> PipelineLayout {
+        let layouts = [uniform_layout];
+        let descriptor = PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &layouts,
+            push_constant_ranges: &[],
+        };
+        device.create_pipeline_layout(&descriptor)
+    }
+
     fn create_pipeline(
         device: &Device,
         layout: &PipelineLayout,
@@ -124,9 +176,36 @@ impl TriangleRenderer {
         device.create_render_pipeline(&descriptor)
     }
 
+    fn create_uniform_buffer(device: &Device) -> Buffer {
+        let descriptor = BufferDescriptor {
+            label: None,
+            size: mem::size_of::<Transform>() as BufferAddress,
+            usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+            mapped_at_creation: false,
+        };
+        device.create_buffer(&descriptor)
+    }
+
+    fn create_uniform_binding(
+        device: &Device,
+        uniform: &Buffer,
+        layout: &BindGroupLayout,
+    ) -> BindGroup {
+        let entries = [BindGroupEntry {
+            binding: 0,
+            resource: uniform.as_entire_binding(),
+        }];
+
+        let descriptor = BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &entries,
+        };
+        device.create_bind_group(&descriptor)
+    }
+
     fn prepare_cmd_buffer(&self, view: &TextureView) -> CommandBuffer {
         let mut encoder = self.device.create_command_encoder(&Default::default());
-
         let attachment = RenderPassColorAttachment {
             view,
             resolve_target: None,
@@ -144,6 +223,7 @@ impl TriangleRenderer {
         {
             let mut render_pass = encoder.begin_render_pass(&render_pass_descriptor);
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.uniform_binding, &[]);
             render_pass.draw(0..3, 0..1);
         }
         encoder.finish()
@@ -151,3 +231,9 @@ impl TriangleRenderer {
 }
 
 pub struct WindowSize(pub u32, pub u32);
+
+pub struct RenderInfo {
+    pub world: Transform,
+}
+
+pub type Transform = [[f32; 4]; 4];
