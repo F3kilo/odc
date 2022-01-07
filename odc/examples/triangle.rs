@@ -1,4 +1,5 @@
-use odc::{TriangleRenderer, WindowSize};
+use glam::Mat4;
+use odc::{RenderInfo, TriangleRenderer, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -20,7 +21,10 @@ fn main() {
                 renderer.resize(size);
             }
             Event::RedrawRequested(_) => {
-                renderer.render_triangle();
+                let info = RenderInfo {
+                    world: Mat4::IDENTITY.to_cols_array_2d(),
+                };
+                renderer.render_triangle(&info);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
