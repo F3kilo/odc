@@ -1,5 +1,5 @@
 use glam::Mat4;
-use odc::{RenderInfo, TriangleRenderer, WindowSize};
+use odc::{InstanceInfo, RenderInfo, TriangleRenderer, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -32,7 +32,10 @@ fn main() {
                 let view_proj = camera.view_proj_transform();
 
                 let info = RenderInfo { world, view_proj };
-                renderer.render_triangle(&info);
+                let instance = InstanceInfo {
+                    transform: glam::Mat4::IDENTITY.to_cols_array_2d(),
+                };
+                renderer.render_triangle(&info, &[instance]);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

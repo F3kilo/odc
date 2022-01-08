@@ -1,5 +1,5 @@
 use glam::Mat4;
-use odc::{RenderInfo, TriangleRenderer, WindowSize};
+use odc::{InstanceInfo, RenderInfo, TriangleRenderer, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -26,7 +26,11 @@ fn main() {
                     world: ident_transform,
                     view_proj: ident_transform,
                 };
-                renderer.render_triangle(&info);
+
+                let instance = InstanceInfo {
+                    transform: ident_transform,
+                };
+                renderer.render_triangle(&info, &[instance]);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

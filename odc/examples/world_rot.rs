@@ -1,5 +1,5 @@
 use glam::{Mat4, Vec3};
-use odc::{RenderInfo, Transform, TriangleRenderer, WindowSize};
+use odc::{InstanceInfo, RenderInfo, Transform, TriangleRenderer, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
 use winit::event::{Event, WindowEvent};
@@ -29,7 +29,11 @@ fn main() {
                     world: rotation.transform(),
                     view_proj,
                 };
-                renderer.render_triangle(&info);
+
+                let instance = InstanceInfo {
+                    transform: glam::Mat4::IDENTITY.to_cols_array_2d(),
+                };
+                renderer.render_triangle(&info, &[instance]);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

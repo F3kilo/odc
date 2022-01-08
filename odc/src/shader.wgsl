@@ -3,8 +3,15 @@ struct RenderInfo {
     view_proj: mat4x4<f32>;
 };
 
+struct InstanceInfo {
+    transform: array<mat4x4<f32>>;
+};
+
 [[group(0), binding(0)]]
 var<uniform> render_info: RenderInfo;
+
+[[group(1), binding(0)]]
+var<storage> instance_info: InstanceInfo;
 
 struct VertexOutput {
     [[builtin(position)]] pos: vec4<f32>;
@@ -12,11 +19,12 @@ struct VertexOutput {
 };
 
 [[stage(vertex)]]
-fn vs_main([[builtin(vertex_index)]] in_vertex_index: u32) -> VertexOutput {
-    let x = f32(i32(in_vertex_index) - 1);
-    let y = f32(i32(in_vertex_index & 1u) * 2 - 1);
+fn vs_main([[builtin(vertex_index)]] vert_index: u32, [[builtin(instance_index)]] inst_index: u32) -> VertexOutput {
+    let x = f32(i32(vert_index) - 1);
+    let y = f32(i32(vert_index & 1u) * 2 - 1);
     let pos = vec4<f32>(x, y, 0.0, 1.0);
-    return VertexOutput(render_info.view_proj * render_info.world * pos, pos);
+    let instance_transform = instance_info.transform[inst_index];
+    return VertexOutput(render_info.view_proj * render_info.world * instance_transform * pos, pos);
 }
 
 [[stage(fragment)]]
