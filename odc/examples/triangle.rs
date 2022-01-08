@@ -21,8 +21,10 @@ fn main() {
                 renderer.resize(size);
             }
             Event::MainEventsCleared => {
+                let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
                 let info = RenderInfo {
-                    world: Mat4::IDENTITY.to_cols_array_2d(),
+                    world: ident_transform,
+                    view_proj: ident_transform,
                 };
                 renderer.render_triangle(&info);
             }

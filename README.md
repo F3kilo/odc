@@ -38,5 +38,4 @@ fn main() {
 ```
 
 ## Next steps
-1. Camera 
-2. Instancing
+1. Instancing
