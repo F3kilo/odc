@@ -18,7 +18,7 @@ impl Camera {
     }
 
     pub fn view_proj_transform(&self) -> Transform {
-        (self.view.transform() * self.proj.transform()).to_cols_array_2d()
+        (self.proj.transform() * self.view.transform()).to_cols_array_2d()
     }
 
     pub fn set_position(&mut self, position: Vec3) -> &mut Self {
