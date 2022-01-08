@@ -1,3 +1,4 @@
+use bytemuck::{Pod, Zeroable};
 use raw_window_handle::HasRawWindowHandle;
 use std::borrow::Cow;
 use std::mem;
@@ -59,11 +60,8 @@ impl TriangleRenderer {
     }
 
     pub fn render_triangle(&self, info: &RenderInfo) {
-        self.queue.write_buffer(
-            &self.uniform,
-            0,
-            bytemuck::cast_slice(info.world.as_slice()),
-        );
+        let info_bytes = bytemuck::bytes_of(info);
+        self.queue.write_buffer(&self.uniform, 0, info_bytes);
         let frame = self.surface.get_current_texture().unwrap();
         let view = frame.texture.create_view(&Default::default());
         let cmd_buffer = self.prepare_cmd_buffer(&view);
@@ -112,7 +110,7 @@ impl TriangleRenderer {
     }
 
     fn uniform_size() -> NonZeroU64 {
-        NonZeroU64::new(mem::size_of::<Transform>() as _).expect("Zero sized uniform")
+        NonZeroU64::new(mem::size_of::<RenderInfo>() as _).expect("Zero sized uniform")
     }
 
     fn create_uniform_layout(device: &Device) -> BindGroupLayout {
@@ -179,7 +177,7 @@ impl TriangleRenderer {
     fn create_uniform_buffer(device: &Device) -> Buffer {
         let descriptor = BufferDescriptor {
             label: None,
-            size: mem::size_of::<Transform>() as BufferAddress,
+            size: mem::size_of::<RenderInfo>() as BufferAddress,
             usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
             mapped_at_creation: false,
         };
@@ -232,8 +230,13 @@ impl TriangleRenderer {
 
 pub struct WindowSize(pub u32, pub u32);
 
+#[derive(Copy, Clone)]
 pub struct RenderInfo {
     pub world: Transform,
+    pub view_proj: Transform,
 }
+
+unsafe impl Zeroable for RenderInfo {}
+unsafe impl Pod for RenderInfo {}
 
 pub type Transform = [[f32; 4]; 4];

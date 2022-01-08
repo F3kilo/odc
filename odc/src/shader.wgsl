@@ -1,5 +1,6 @@
 struct RenderInfo {
     world: mat4x4<f32>;
+    view_proj: mat4x4<f32>;
 };
 
 [[group(0), binding(0)]]
@@ -15,7 +16,7 @@ fn vs_main([[builtin(vertex_index)]] in_vertex_index: u32) -> VertexOutput {
     let x = f32(i32(in_vertex_index) - 1);
     let y = f32(i32(in_vertex_index & 1u) * 2 - 1);
     let pos = vec4<f32>(x, y, 0.0, 1.0);
-    return VertexOutput(render_info.world * pos, pos);
+    return VertexOutput(render_info.view_proj * render_info.world * pos, pos);
 }
 
 [[stage(fragment)]]

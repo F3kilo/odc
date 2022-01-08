@@ -24,8 +24,10 @@ fn main() {
                 renderer.resize(size);
             }
             Event::MainEventsCleared => {
+                let view_proj = Mat4::IDENTITY.to_cols_array_2d();
                 let info = RenderInfo {
                     world: rotation.transform(),
+                    view_proj,
                 };
                 renderer.render_triangle(&info);
             }
