@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "odc"
+    "odc",
+    "vp_cam"
 ]
 
 resolver = "2"
