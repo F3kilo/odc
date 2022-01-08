@@ -1,9 +1,4 @@
-# ODC
-
-Simple and fast render engine based on [wgpu](https://github.com/gfx-rs/wgpu) crate.
-
-## Triangle example
-```rust
+use bytemuck::Zeroable;
 use glam::Mat4;
 use odc::{InstanceInfo, RenderInfo, TriangleRenderer, WindowSize};
 use winit::event::{Event, WindowEvent};
@@ -33,10 +28,8 @@ fn main() {
                     view_proj: ident_transform,
                 };
 
-                let instance = InstanceInfo {
-                    transform: ident_transform,
-                };
-                renderer.render_triangle(&info, &[instance]);
+                let instances = get_instances();
+                renderer.render_triangle(&info, &instances);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -46,8 +39,27 @@ fn main() {
         }
     });
 }
-```
 
-## Next steps
-1. Arbitry geometry
-2. Refactoring
+fn get_instances() -> [InstanceInfo; 256] {
+    let mut instances = [InstanceInfo::zeroed(); 256];
+
+    for i in 0..16 {
+        for j in 0..16 {
+            instances[i * 16 + j] = create_instance(i, j);
+        }
+    }
+
+    instances
+}
+
+fn create_instance(x: usize, y: usize) -> InstanceInfo {
+    let step = 2.0 / 16.0;
+    let x = (x as f32 - 7.5) * step;
+    let y = (y as f32 - 7.5) * step;
+    let pos = glam::vec3(x, y, 0.0);
+    let size = step / 2.5;
+    let scale = glam::vec3(size, size, size);
+    let transform = glam::Mat4::from_scale_rotation_translation(scale, glam::Quat::IDENTITY, pos)
+        .to_cols_array_2d();
+    InstanceInfo { transform }
+}
