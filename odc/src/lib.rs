@@ -19,6 +19,8 @@ pub struct TriangleRenderer {
     swapchain_format: TextureFormat,
     device: Device,
     queue: Queue,
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
     pipeline: RenderPipeline,
     uniform: Buffer,
     uniform_binding: BindGroup,
@@ -28,12 +30,18 @@ pub struct TriangleRenderer {
 
 impl TriangleRenderer {
     pub const MAX_INSTANCE_COUNT: usize = 2usize.pow(16);
+    pub const VERTEX_BUFFER_SIZE: u64 = 2u64.pow(24);
+    pub const INDEX_BUFFER_SIZE: u64 = 2u64.pow(22);
 
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
         let instance = wgpu::Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(&window) };
         let adapter = Self::request_adapter(&instance, &surface);
         let (device, queue) = Self::request_device(&adapter);
+
+        let vertex_buffer = Self::create_vertex_buffer(&device);
+        let index_buffer = Self::create_index_buffer(&device);
+
         let uniform = Self::create_uniform_buffer(&device);
         let uniform_layout = Self::create_uniform_layout(&device);
         let uniform_binding = Self::create_uniform_binding(&device, &uniform, &uniform_layout);
@@ -62,12 +70,22 @@ impl TriangleRenderer {
             swapchain_format,
             device,
             queue,
+            vertex_buffer,
+            index_buffer,
             pipeline,
             uniform,
             uniform_binding,
             storage,
             storage_binding,
         }
+    }
+
+    pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
+        let vertex_data = bytemuck::cast_slice(&mesh.vertices);
+        self.queue.write_buffer(&self.vertex_buffer, vertex_offset, vertex_data);
+
+        let index_data = bytemuck::cast_slice(&mesh.indices);
+        self.queue.write_buffer(&self.index_buffer, index_offset, index_data);
     }
 
     pub fn render_triangle(&self, info: &RenderInfo, instances: &[InstanceInfo]) {
@@ -212,6 +230,26 @@ impl TriangleRenderer {
         device.create_render_pipeline(&descriptor)
     }
 
+    fn create_vertex_buffer(device: &Device) -> Buffer {
+        let descriptor = BufferDescriptor {
+            label: None,
+            size: Self::VERTEX_BUFFER_SIZE,
+            usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
+            mapped_at_creation: false,
+        };
+        device.create_buffer(&descriptor)
+    }
+
+    fn create_index_buffer(device: &Device) -> Buffer {
+        let descriptor = BufferDescriptor {
+            label: None,
+            size: Self::INDEX_BUFFER_SIZE,
+            usage: BufferUsages::COPY_DST | BufferUsages::INDEX,
+            mapped_at_creation: false,
+        };
+        device.create_buffer(&descriptor)
+    }
+
     fn aligned_storage_size(alignment: usize) -> NonZeroU64 {
         let size = mem::size_of::<InstanceInfo>();
         let rem = size % alignment;
@@ -329,3 +367,17 @@ unsafe impl Zeroable for InstanceInfo {}
 unsafe impl Pod for InstanceInfo {}
 
 pub type Transform = [[f32; 4]; 4];
+
+pub struct Mesh {
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
+}
+
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: [f32; 4],
+    pub color: [f32; 4],
+}
+
+unsafe impl Zeroable for Vertex {}
+unsafe impl Pod for Vertex {}
