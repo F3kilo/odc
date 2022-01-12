@@ -11,8 +11,9 @@ use wgpu::{
     IndexFormat, Instance, Limits, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor,
     PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
-    TextureView, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    ShaderSource, ShaderStages, Surface, SurfaceConfiguration, SurfaceError, TextureFormat,
+    TextureUsages, TextureView, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
+    VertexStepMode,
 };
 
 pub struct TriangleRenderer {
@@ -110,7 +111,11 @@ impl TriangleRenderer {
     ) {
         let info_bytes = bytemuck::bytes_of(info);
         self.queue.write_buffer(&self.uniform, 0, info_bytes);
-        let frame = self.surface.get_current_texture().unwrap();
+        let frame = match self.surface.get_current_texture() {
+            Ok(f) => f,
+            Err(SurfaceError::Outdated) => return,
+            e => e.unwrap(),
+        };
         let view = frame.texture.create_view(&Default::default());
         let cmd_buffer = self.prepare_cmd_buffer(&view, draws);
         self.queue.submit(Some(cmd_buffer));
@@ -118,6 +123,10 @@ impl TriangleRenderer {
     }
 
     pub fn resize(&mut self, size: WindowSize) {
+        if size.is_zero_square() {
+            return;
+        }
+
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: self.swapchain_format,
@@ -382,7 +391,7 @@ impl TriangleRenderer {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
             render_pass.set_bind_group(0, &self.uniform_binding, &[]);
-            render_pass.set_bind_group(1, &self.storage_binding, &[0]);
+            render_pass.set_bind_group(1, &self.storage_binding, &[]);
             for draw in draws {
                 render_pass.draw_indexed(
                     draw.indices.clone(),
@@ -396,6 +405,12 @@ impl TriangleRenderer {
 }
 
 pub struct WindowSize(pub u32, pub u32);
+
+impl WindowSize {
+    pub fn is_zero_square(&self) -> bool {
+        self.0 * self.1 == 0
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct RenderInfo {
