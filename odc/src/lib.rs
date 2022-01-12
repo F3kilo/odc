@@ -187,7 +187,7 @@ impl TriangleRenderer {
             binding: 0,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: true,
+                has_dynamic_offset: false,
                 min_binding_size: Some(min_size),
             },
             count: None,
