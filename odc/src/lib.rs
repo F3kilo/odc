@@ -3,15 +3,17 @@ use raw_window_handle::HasRawWindowHandle;
 use std::borrow::Cow;
 use std::mem;
 use std::num::NonZeroU64;
+use std::ops::Range;
 use wgpu::{
     Adapter, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType,
     BufferDescriptor, BufferUsages, Color, CommandBuffer, Device, DeviceDescriptor, FragmentState,
-    Instance, Limits, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor, PresentMode,
-    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    IndexFormat, Instance, Limits, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor,
+    PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
-    TextureView, VertexState,
+    ShaderSource, ShaderStages, Surface, SurfaceConfiguration, SurfaceError, TextureFormat,
+    TextureUsages, TextureView, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
+    VertexStepMode,
 };
 
 pub struct TriangleRenderer {
@@ -19,6 +21,8 @@ pub struct TriangleRenderer {
     swapchain_format: TextureFormat,
     device: Device,
     queue: Queue,
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
     pipeline: RenderPipeline,
     uniform: Buffer,
     uniform_binding: BindGroup,
@@ -28,12 +32,18 @@ pub struct TriangleRenderer {
 
 impl TriangleRenderer {
     pub const MAX_INSTANCE_COUNT: usize = 2usize.pow(16);
+    pub const VERTEX_BUFFER_SIZE: u64 = 2u64.pow(24);
+    pub const INDEX_BUFFER_SIZE: u64 = 2u64.pow(22);
 
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
         let instance = wgpu::Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(&window) };
         let adapter = Self::request_adapter(&instance, &surface);
         let (device, queue) = Self::request_device(&adapter);
+
+        let vertex_buffer = Self::create_vertex_buffer(&device);
+        let index_buffer = Self::create_index_buffer(&device);
+
         let uniform = Self::create_uniform_buffer(&device);
         let uniform_layout = Self::create_uniform_layout(&device);
         let uniform_binding = Self::create_uniform_binding(&device, &uniform, &uniform_layout);
@@ -62,6 +72,8 @@ impl TriangleRenderer {
             swapchain_format,
             device,
             queue,
+            vertex_buffer,
+            index_buffer,
             pipeline,
             uniform,
             uniform_binding,
@@ -70,19 +82,51 @@ impl TriangleRenderer {
         }
     }
 
-    pub fn render_triangle(&self, info: &RenderInfo, instances: &[InstanceInfo]) {
+    pub fn write_instances(&mut self, instances: &[InstanceInfo], offset: u64) {
+        let instance_data = bytemuck::cast_slice(instances);
+        self.queue
+            .write_buffer(&self.storage, offset, instance_data);
+    }
+
+    pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
+        let vertex_data = bytemuck::cast_slice(&mesh.vertices);
+        self.queue.write_buffer(
+            &self.vertex_buffer,
+            vertex_offset * Vertex::size() as u64,
+            vertex_data,
+        );
+
+        let index_data = bytemuck::cast_slice(&mesh.indices);
+        self.queue.write_buffer(
+            &self.index_buffer,
+            index_offset * mem::size_of::<u32>() as u64,
+            index_data,
+        );
+    }
+
+    pub fn render<'a>(
+        &self,
+        info: &RenderInfo,
+        draws: impl Iterator<Item = &'a StaticMesh>,
+    ) {
         let info_bytes = bytemuck::bytes_of(info);
         self.queue.write_buffer(&self.uniform, 0, info_bytes);
-        self.queue
-            .write_buffer(&self.storage, 0, bytemuck::cast_slice(instances));
-        let frame = self.surface.get_current_texture().unwrap();
+        let frame = match self.surface.get_current_texture() {
+            Ok(f) => f,
+            Err(SurfaceError::Outdated) => return,
+            e => e.unwrap(),
+        };
         let view = frame.texture.create_view(&Default::default());
-        let cmd_buffer = self.prepare_cmd_buffer(&view, instances);
+        let cmd_buffer = self.prepare_cmd_buffer(&view, draws);
         self.queue.submit(Some(cmd_buffer));
         frame.present();
     }
 
     pub fn resize(&mut self, size: WindowSize) {
+        if size.is_zero_square() {
+            return;
+        }
+
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: self.swapchain_format,
@@ -152,7 +196,7 @@ impl TriangleRenderer {
             binding: 0,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: true,
+                has_dynamic_offset: false,
                 min_binding_size: Some(min_size),
             },
             count: None,
@@ -185,10 +229,29 @@ impl TriangleRenderer {
         shader: &ShaderModule,
         swapchain_format: &TextureFormat,
     ) -> RenderPipeline {
+        let attributes = [
+            VertexAttribute {
+                format: VertexFormat::Float32x4,
+                offset: Vertex::position_offset() as _,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: VertexFormat::Float32x4,
+                offset: Vertex::color_offset() as _,
+                shader_location: 1,
+            },
+        ];
+
+        let vertex_layout = VertexBufferLayout {
+            array_stride: Vertex::size() as _,
+            attributes: &attributes,
+            step_mode: VertexStepMode::Vertex,
+        };
+
         let vertex = VertexState {
             module: shader,
             entry_point: "vs_main",
-            buffers: &[],
+            buffers: &[vertex_layout],
         };
 
         let formats = [(*swapchain_format).into()];
@@ -210,6 +273,26 @@ impl TriangleRenderer {
         };
 
         device.create_render_pipeline(&descriptor)
+    }
+
+    fn create_vertex_buffer(device: &Device) -> Buffer {
+        let descriptor = BufferDescriptor {
+            label: None,
+            size: Self::VERTEX_BUFFER_SIZE,
+            usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
+            mapped_at_creation: false,
+        };
+        device.create_buffer(&descriptor)
+    }
+
+    fn create_index_buffer(device: &Device) -> Buffer {
+        let descriptor = BufferDescriptor {
+            label: None,
+            size: Self::INDEX_BUFFER_SIZE,
+            usage: BufferUsages::COPY_DST | BufferUsages::INDEX,
+            mapped_at_creation: false,
+        };
+        device.create_buffer(&descriptor)
     }
 
     fn aligned_storage_size(alignment: usize) -> NonZeroU64 {
@@ -282,7 +365,11 @@ impl TriangleRenderer {
         device.create_bind_group(&descriptor)
     }
 
-    fn prepare_cmd_buffer(&self, view: &TextureView, instances: &[InstanceInfo]) -> CommandBuffer {
+    fn prepare_cmd_buffer<'a>(
+        &self,
+        view: &TextureView,
+        draws: impl Iterator<Item = &'a StaticMesh>,
+    ) -> CommandBuffer {
         let mut encoder = self.device.create_command_encoder(&Default::default());
         let attachment = RenderPassColorAttachment {
             view,
@@ -301,15 +388,29 @@ impl TriangleRenderer {
         {
             let mut render_pass = encoder.begin_render_pass(&render_pass_descriptor);
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
             render_pass.set_bind_group(0, &self.uniform_binding, &[]);
-            render_pass.set_bind_group(1, &self.storage_binding, &[0]);
-            render_pass.draw(0..3, 0..instances.len() as u32);
+            render_pass.set_bind_group(1, &self.storage_binding, &[]);
+            for draw in draws {
+                render_pass.draw_indexed(
+                    draw.indices.clone(),
+                    draw.base_vertex,
+                    draw.instances.clone(),
+                );
+            }
         }
         encoder.finish()
     }
 }
 
 pub struct WindowSize(pub u32, pub u32);
+
+impl WindowSize {
+    pub fn is_zero_square(&self) -> bool {
+        self.0 * self.1 == 0
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct RenderInfo {
@@ -320,6 +421,12 @@ pub struct RenderInfo {
 unsafe impl Zeroable for RenderInfo {}
 unsafe impl Pod for RenderInfo {}
 
+pub struct StaticMesh {
+    pub indices: Range<u32>,
+    pub base_vertex: i32,
+    pub instances: Range<u32>,
+}
+
 #[derive(Copy, Clone)]
 pub struct InstanceInfo {
     pub transform: Transform,
@@ -329,3 +436,31 @@ unsafe impl Zeroable for InstanceInfo {}
 unsafe impl Pod for InstanceInfo {}
 
 pub type Transform = [[f32; 4]; 4];
+
+pub struct Mesh {
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
+}
+
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: [f32; 4],
+    pub color: [f32; 4],
+}
+
+impl Vertex {
+    pub const fn size() -> usize {
+        mem::size_of::<Self>()
+    }
+
+    pub const fn position_offset() -> usize {
+        0
+    }
+
+    pub const fn color_offset() -> usize {
+        mem::size_of::<[f32; 4]>()
+    }
+}
+
+unsafe impl Zeroable for Vertex {}
+unsafe impl Pod for Vertex {}
