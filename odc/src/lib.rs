@@ -104,7 +104,7 @@ impl TriangleRenderer {
         );
     }
 
-    pub fn render_triangle<'a>(
+    pub fn render<'a>(
         &self,
         info: &RenderInfo,
         draws: impl Iterator<Item = &'a StaticMesh>,

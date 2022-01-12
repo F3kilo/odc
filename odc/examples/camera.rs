@@ -45,7 +45,7 @@ fn main() {
                     base_vertex: 0,
                     instances: 0..1,
                 };
-                renderer.render_triangle(&info, [draw].iter());
+                renderer.render(&info, [draw].iter());
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

@@ -59,7 +59,7 @@ fn main() {
                     base_vertex: 3,
                     instances: 1..2,
                 };
-                renderer.render_triangle(&info, [draw_triangle, draw_rectangle].iter());
+                renderer.render(&info, [draw_triangle, draw_rectangle].iter());
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
