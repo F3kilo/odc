@@ -89,12 +89,18 @@ impl TriangleRenderer {
 
     pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
         let vertex_data = bytemuck::cast_slice(&mesh.vertices);
-        self.queue
-            .write_buffer(&self.vertex_buffer, vertex_offset, vertex_data);
+        self.queue.write_buffer(
+            &self.vertex_buffer,
+            vertex_offset * Vertex::size() as u64,
+            vertex_data,
+        );
 
         let index_data = bytemuck::cast_slice(&mesh.indices);
-        self.queue
-            .write_buffer(&self.index_buffer, index_offset, index_data);
+        self.queue.write_buffer(
+            &self.index_buffer,
+            index_offset * mem::size_of::<u32>() as u64,
+            index_data,
+        );
     }
 
     pub fn render_triangle<'a>(
