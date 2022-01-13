@@ -15,7 +15,7 @@ struct InstanceInfo {
 [[group(0), binding(0)]]
 var<uniform> render_info: RenderInfo;
 
-[[group(1), binding(0)]]
+[[group(0), binding(1)]]
 var<storage> instance_info: InstanceInfo;
 
 struct VertexOutput {
