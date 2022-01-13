@@ -1,14 +1,23 @@
-use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, Buffer, BufferDescriptor, Device, DeviceDescriptor, FragmentState, Instance, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor, ShaderSource, Surface, TextureView, VertexBufferLayout, VertexState};
+use crate::{MeshBuffers, StaticMesh, Vertex, WindowSize};
 use std::borrow::Cow;
-use crate::{BindGroupLayoutEntry, BindingType, BufferAddress, BufferBindingType, BufferSize, BufferUsages, Color, IndexFormat, Limits, PresentMode, ShaderStages, StaticMesh, SurfaceConfiguration, TextureFormat, TextureUsages, Vertex, VertexAttribute, VertexFormat, VertexStepMode, WindowSize};
+use wgpu::{
+    Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferAddress,
+    BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, Color, Device, DeviceDescriptor,
+    FragmentState, Instance, Limits, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor,
+    PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
+    ShaderSource, ShaderStages, Surface, SurfaceConfiguration, TextureFormat, TextureUsages,
+    TextureView, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+};
 
-pub struct GraphicsDevice {
+pub struct GfxDevice {
     adapter: Adapter,
     device: Device,
     queue: Queue,
 }
 
-impl GraphicsDevice {
+impl GfxDevice {
     pub fn new(instance: &Instance, surface: Option<&Surface>) -> Self {
         let adapter = Self::request_adapter(instance, surface);
         let (device, queue) = Self::request_device(&adapter);
@@ -183,10 +192,9 @@ impl GraphicsDevice {
     }
 
     pub fn render<'a>(
-        &self,
+        &'a self,
         view: &TextureView,
-        vertex_buffer: &Buffer,
-        index_buffer: &Buffer,
+        mesh: &MeshBuffers,
         binding: &BindGroup,
         pipeline: &RenderPipeline,
         draws: impl Iterator<Item = &'a StaticMesh>,
@@ -209,8 +217,7 @@ impl GraphicsDevice {
         {
             let mut render_pass = encoder.begin_render_pass(&render_pass_descriptor);
             render_pass.set_pipeline(pipeline);
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint32);
+            mesh.bind(&mut render_pass);
             render_pass.set_bind_group(0, binding, &[]);
             for draw in draws {
                 render_pass.draw_indexed(

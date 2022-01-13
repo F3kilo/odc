@@ -1,25 +1,23 @@
 use bytemuck::{Pod, Zeroable};
+use gdevice::GfxDevice;
+use mesh_buf::MeshBuffers;
 use raw_window_handle::HasRawWindowHandle;
 use std::mem;
 use std::num::NonZeroU64;
 use std::ops::Range;
 use wgpu::{
-    Backends, BindGroup, BindGroupLayoutEntry, BindingType, Buffer, BufferAddress,
-    BufferBindingType, BufferSize, BufferUsages, Color, IndexFormat, Instance, Limits, PresentMode,
-    RenderPipeline, ShaderStages, Surface, SurfaceConfiguration,
-    SurfaceError, TextureFormat, TextureUsages, VertexAttribute,
-    VertexFormat, VertexStepMode,
+    Backends, BindGroup, Buffer, BufferSize, BufferUsages, Instance, RenderPipeline, Surface,
+    SurfaceError, TextureFormat,
 };
-use gdevice::GraphicsDevice;
 
 mod gdevice;
+mod mesh_buf;
 
 pub struct TriangleRenderer {
     surface: Surface,
     swapchain_format: TextureFormat,
-    graphics_device: GraphicsDevice,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
+    device: GfxDevice,
+    mesh_buffers: MeshBuffers,
     pipeline: RenderPipeline,
     uniform: Buffer,
     storage: Buffer,
@@ -34,47 +32,39 @@ impl TriangleRenderer {
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
         let instance = Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(&window) };
-        let graphics_device = GraphicsDevice::new(&instance, Some(&surface));
+        let device = GfxDevice::new(&instance, Some(&surface));
 
-        let vertex_buffer = graphics_device.create_gpu_buffer(
-            Self::VERTEX_BUFFER_SIZE,
-            BufferUsages::COPY_DST | BufferUsages::VERTEX,
-        );
-        let index_buffer = graphics_device.create_gpu_buffer(
-            Self::INDEX_BUFFER_SIZE,
-            BufferUsages::COPY_DST | BufferUsages::INDEX,
-        );
+        let mesh_buffers =
+            MeshBuffers::new(&device, Self::VERTEX_BUFFER_SIZE, Self::INDEX_BUFFER_SIZE);
 
-        let unioform_size = Self::uniform_size();
-        let uniform = graphics_device.create_gpu_buffer(
-            unioform_size.get(),
+        let uniform_size = Self::uniform_size();
+        let uniform = device.create_gpu_buffer(
+            uniform_size.get(),
             BufferUsages::COPY_DST | BufferUsages::UNIFORM,
         );
-        let storage = graphics_device.create_gpu_buffer(
+        let storage = device.create_gpu_buffer(
             Self::storage_size(),
             BufferUsages::COPY_DST | BufferUsages::STORAGE,
         );
 
         let storage_min_size =
             BufferSize::new(InstanceInfo::size() as _).expect("unexpected zero size instance");
-        let global_binding_layout =
-            graphics_device.create_bind_group_layout(unioform_size, storage_min_size);
+        let global_binding_layout = device.create_bind_group_layout(uniform_size, storage_min_size);
 
-        let binding = graphics_device.create_binding(&uniform, &storage, &global_binding_layout);
+        let binding = device.create_binding(&uniform, &storage, &global_binding_layout);
 
-        let shader = graphics_device.create_shader();
-        let pipeline_layout = graphics_device.create_pipeline_layout(&[&global_binding_layout]);
-        let swapchain_format = graphics_device.preferred_surface_format(&surface).unwrap();
-        let pipeline = graphics_device.create_pipeline(&pipeline_layout, &shader, swapchain_format);
+        let shader = device.create_shader();
+        let pipeline_layout = device.create_pipeline_layout(&[&global_binding_layout]);
+        let swapchain_format = device.preferred_surface_format(&surface).unwrap();
+        let pipeline = device.create_pipeline(&pipeline_layout, &shader, swapchain_format);
 
-        graphics_device.configure_surface(&surface, size, swapchain_format);
+        device.configure_surface(&surface, size, swapchain_format);
 
         Self {
             surface,
             swapchain_format,
-            graphics_device,
-            vertex_buffer,
-            index_buffer,
+            device,
+            mesh_buffers,
             pipeline,
             uniform,
             storage,
@@ -84,36 +74,29 @@ impl TriangleRenderer {
 
     pub fn write_instances(&mut self, instances: &[InstanceInfo], offset: u64) {
         let instance_data = bytemuck::cast_slice(instances);
-        self.graphics_device
+        self.device
             .write_buffer(&self.storage, offset, instance_data)
     }
 
     pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
-        let data = bytemuck::cast_slice(&mesh.vertices);
-        let offset = vertex_offset * Vertex::size() as u64;
-        self.graphics_device
-            .write_buffer(&self.vertex_buffer, offset, data);
-
-        let data = bytemuck::cast_slice(&mesh.indices);
-        let offset = index_offset * mem::size_of::<u32>() as u64;
-        self.graphics_device
-            .write_buffer(&self.index_buffer, offset, data);
+        self.mesh_buffers
+            .write_vertices(&self.device, &mesh.vertices, vertex_offset);
+        self.mesh_buffers
+            .write_indices(&self.device, &mesh.indices, index_offset);
     }
 
-    pub fn render<'a>(&self, info: &RenderInfo, draws: impl Iterator<Item = &'a StaticMesh>) {
+    pub fn render<'a>(&'a self, info: &RenderInfo, draws: impl Iterator<Item = &'a StaticMesh>) {
         let render_data = bytemuck::bytes_of(info);
-        self.graphics_device
-            .write_buffer(&self.uniform, 0, render_data);
+        self.device.write_buffer(&self.uniform, 0, render_data);
         let frame = match self.surface.get_current_texture() {
             Ok(f) => f,
             Err(SurfaceError::Outdated) => return,
             e => e.unwrap(),
         };
         let view = frame.texture.create_view(&Default::default());
-        self.graphics_device.render(
+        self.device.render(
             &view,
-            &self.vertex_buffer,
-            &self.index_buffer,
+            &self.mesh_buffers,
             &self.binding,
             &self.pipeline,
             draws,
@@ -126,7 +109,7 @@ impl TriangleRenderer {
             return;
         }
 
-        self.graphics_device
+        self.device
             .configure_surface(&self.surface, size, self.swapchain_format)
     }
 
