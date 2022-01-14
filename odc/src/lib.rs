@@ -26,8 +26,7 @@ pub struct OdcCore {
     device: GfxDevice,
     mesh_buffers: MeshBuffers,
     instances: Instances,
-    uniform_buffer: Buffer,
-    uniform_binding: BindGroup,
+    uniform: Uniform,
     pipeline: RenderPipeline,
 }
 
@@ -44,24 +43,10 @@ impl OdcCore {
         let mesh_buffers = MeshBuffers::new(&device);
 
         let instances = Instances::new(&device);
+        let uniform = Uniform::new(&device);
 
-
-        let uniform_size = Self::uniform_size();
-        let uniform_buffer = crate::create_gpu_buffer(
-            &device,
-            uniform_size.get(),
-            BufferUsages::COPY_DST | BufferUsages::UNIFORM,
-        );
-
-        let uniform_binding_layout = Self::create_uniform_bind_group_layout(&device, uniform_size);
-        let uniform_binding =
-            Self::create_uniform_bind_group(&device, &uniform_buffer, &uniform_binding_layout);
-
-        let pipeline_layout = Self::create_pipeline_layout(
-            &device,
-            &instances.layout,
-            &uniform_binding_layout,
-        );
+        let pipeline_layout =
+            Self::create_pipeline_layout(&device, &instances.layout, &uniform.layout);
         let pipeline = Self::create_pipeline(&device, &pipeline_layout, swapchain_format);
 
         configure_surface(&device, &surface, size, swapchain_format);
@@ -72,9 +57,8 @@ impl OdcCore {
             device,
             mesh_buffers,
             instances,
+            uniform,
             pipeline,
-            uniform_buffer,
-            uniform_binding,
         }
     }
 
@@ -120,7 +104,7 @@ impl OdcCore {
         let render_data = bytemuck::bytes_of(info);
         self.device
             .queue
-            .write_buffer(&self.uniform_buffer, 0, render_data);
+            .write_buffer(&self.uniform.buffer, 0, render_data);
     }
 
     fn begin_render_pass<'a>(
@@ -152,7 +136,7 @@ impl OdcCore {
         pass.set_pipeline(&self.pipeline);
         self.mesh_buffers.bind(pass);
         pass.set_bind_group(0, &self.instances.bind_group, &[]);
-        pass.set_bind_group(1, &self.uniform_binding, &[]);
+        pass.set_bind_group(1, &self.uniform.bind_group, &[]);
         for draw in draws {
             pass.draw_indexed(
                 draw.indices.clone(),
@@ -168,46 +152,6 @@ impl OdcCore {
         }
 
         configure_surface(&self.device, &self.surface, size, self.swapchain_format)
-    }
-
-    fn create_uniform_bind_group_layout(
-        device: &GfxDevice,
-        uniform_size: BufferSize,
-    ) -> BindGroupLayout {
-        let uniform_entry = BindGroupLayoutEntry {
-            binding: 0,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: Some(uniform_size),
-            },
-            count: None,
-            visibility: ShaderStages::VERTEX,
-        };
-
-        let descriptor = BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[uniform_entry],
-        };
-        device.device.create_bind_group_layout(&descriptor)
-    }
-
-    fn create_uniform_bind_group(
-        device: &GfxDevice,
-        uniform: &Buffer,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
-        let entries = [BindGroupEntry {
-            binding: 0,
-            resource: uniform.as_entire_binding(),
-        }];
-
-        let descriptor = BindGroupDescriptor {
-            label: None,
-            layout,
-            entries: &entries,
-        };
-        device.device.create_bind_group(&descriptor)
     }
 
     fn create_shader(device: &GfxDevice) -> ShaderModule {
@@ -285,10 +229,6 @@ impl OdcCore {
         };
 
         device.device.create_render_pipeline(&descriptor)
-    }
-
-    fn uniform_size() -> BufferSize {
-        NonZeroU64::new(mem::size_of::<RenderInfo>() as _).expect("Zero sized uniform")
     }
 }
 
@@ -394,19 +334,15 @@ pub struct Instances {
 
 impl Instances {
     pub fn new(device: &GfxDevice) -> Self {
-        let buffer = create_gpu_buffer(
-            device,
-            Self::instances_size(),
-            BufferUsages::COPY_DST | BufferUsages::STORAGE,
-        );
-
-        let layout = Self::create_instances_bind_group_layout(device);
-        let bind_group = Self::create_instances_bind_group(device, &layout, &buffer);
+        let usage = BufferUsages::COPY_DST | BufferUsages::STORAGE;
+        let buffer = create_gpu_buffer(device, Self::instances_size(), usage);
+        let layout = Self::create_layout(device);
+        let bind_group = Self::create_bind_group(device, &layout, &buffer);
 
         Self {
             buffer,
             layout,
-            bind_group
+            bind_group,
         }
     }
 
@@ -416,7 +352,7 @@ impl Instances {
         InstanceInfo::size() as u64 * Self::MAX_INSTANCE_COUNT as u64
     }
 
-    fn create_instances_bind_group_layout(device: &GfxDevice) -> BindGroupLayout {
+    fn create_layout(device: &GfxDevice) -> BindGroupLayout {
         let storage_min_size =
             BufferSize::new(InstanceInfo::size() as _).expect("unexpected zero size instance");
 
@@ -438,7 +374,7 @@ impl Instances {
         device.device.create_bind_group_layout(&descriptor)
     }
 
-    pub fn create_instances_bind_group(
+    pub fn create_bind_group(
         device: &GfxDevice,
         layout: &BindGroupLayout,
         storage: &Buffer,
@@ -446,6 +382,68 @@ impl Instances {
         let entries = [BindGroupEntry {
             binding: 0,
             resource: storage.as_entire_binding(),
+        }];
+
+        let descriptor = BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &entries,
+        };
+        device.device.create_bind_group(&descriptor)
+    }
+}
+
+struct Uniform {
+    pub buffer: Buffer,
+    pub layout: BindGroupLayout,
+    pub bind_group: BindGroup,
+}
+
+impl Uniform {
+    pub fn new(device: &GfxDevice) -> Self {
+        let usage = BufferUsages::COPY_DST | BufferUsages::UNIFORM;
+        let buffer = crate::create_gpu_buffer(device, Self::buffer_size().get(), usage);
+        let layout = Self::create_bind_group_layout(device);
+        let bind_group = Self::create_bind_group(device, &buffer, &layout);
+
+        Self {
+            buffer,
+            layout,
+            bind_group,
+        }
+    }
+
+    fn buffer_size() -> BufferSize {
+        NonZeroU64::new(mem::size_of::<RenderInfo>() as _).expect("Zero sized uniform")
+    }
+
+    fn create_bind_group_layout(device: &GfxDevice) -> BindGroupLayout {
+        let uniform_entry = BindGroupLayoutEntry {
+            binding: 0,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: Some(Self::buffer_size()),
+            },
+            count: None,
+            visibility: ShaderStages::VERTEX,
+        };
+
+        let descriptor = BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[uniform_entry],
+        };
+        device.device.create_bind_group_layout(&descriptor)
+    }
+
+    fn create_bind_group(
+        device: &GfxDevice,
+        buffer: &Buffer,
+        layout: &BindGroupLayout,
+    ) -> BindGroup {
+        let entries = [BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
         }];
 
         let descriptor = BindGroupDescriptor {
