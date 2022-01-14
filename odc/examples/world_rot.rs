@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec3};
 use odc::{
-    InstanceInfo, Mesh, RenderInfo, StaticMesh, Transform, TriangleRenderer, Vertex, WindowSize,
+    InstanceInfo, Mesh, RenderInfo, StaticMesh, Transform, OdcCore, Vertex, WindowSize,
 };
 use std::f32::consts::PI;
 use std::time::Instant;
@@ -14,7 +14,7 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = TriangleRenderer::new(&window, size);
+    let mut renderer = OdcCore::new(&window, size);
     renderer.write_mesh(&triangle_mesh(), 0, 0);
 
     let rotation = Rotation::default();

@@ -2,31 +2,37 @@ use bytemuck::{Pod, Zeroable};
 use gdevice::GfxDevice;
 use mesh_buf::MeshBuffers;
 use raw_window_handle::HasRawWindowHandle;
-use renderer::BasicRenderer;
+use std::borrow::Cow;
 use std::mem;
+use std::num::NonZeroU64;
 use std::ops::Range;
 use wgpu::{
     Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferAddress,
-    BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, Instance, PresentMode,
-    ShaderStages, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages,
+    BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, Color, CommandEncoder,
+    FragmentState, Instance, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor,
+    PresentMode, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages,
+    Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureView,
+    VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 
 mod gdevice;
 mod mesh_buf;
-mod renderer;
 
-pub struct TriangleRenderer {
+pub struct OdcCore {
     surface: Surface,
     swapchain_format: TextureFormat,
     device: GfxDevice,
     mesh_buffers: MeshBuffers,
     instances: Buffer,
     instances_binding: BindGroup,
-    renderer: BasicRenderer,
+    uniform_buffer: Buffer,
+    uniform_binding: BindGroup,
+    pipeline: RenderPipeline,
 }
 
-impl TriangleRenderer {
+impl OdcCore {
     pub const MAX_INSTANCE_COUNT: usize = 2usize.pow(16);
     pub const VERTEX_BUFFER_SIZE: u64 = 2u64.pow(24);
     pub const INDEX_BUFFER_SIZE: u64 = 2u64.pow(22);
@@ -53,7 +59,23 @@ impl TriangleRenderer {
             .get_preferred_format(&device.adapter)
             .expect("can't find suit surface format");
 
-        let renderer = BasicRenderer::new(&device, swapchain_format, &instances_binding_layout);
+        let uniform_size = Self::uniform_size();
+        let uniform_buffer = crate::create_gpu_buffer(
+            &device,
+            uniform_size.get(),
+            BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+        );
+
+        let uniform_binding_layout = Self::create_bind_group_layout(&device, uniform_size);
+        let uniform_binding =
+            Self::create_uniform_binding(&device, &uniform_buffer, &uniform_binding_layout);
+
+        let pipeline_layout = Self::create_pipeline_layout(
+            &device,
+            &instances_binding_layout,
+            &uniform_binding_layout,
+        );
+        let pipeline = Self::create_pipeline(&device, &pipeline_layout, swapchain_format);
 
         configure_surface(&device, &surface, size, swapchain_format);
 
@@ -64,7 +86,9 @@ impl TriangleRenderer {
             mesh_buffers,
             instances,
             instances_binding,
-            renderer,
+            pipeline,
+            uniform_buffer,
+            uniform_binding,
         }
     }
 
@@ -82,8 +106,8 @@ impl TriangleRenderer {
             .write_indices(&self.device, &mesh.indices, index_offset);
     }
 
-    pub fn render<'a>(&'a self, info: &RenderInfo, draws: impl Iterator<Item = &'a StaticMesh>) {
-        self.renderer.update(&self.device, info);
+    pub fn render<'b>(&self, info: &'b RenderInfo, draws: impl Iterator<Item = &'b StaticMesh>) {
+        self.update_uniform(info);
 
         let frame = match self.surface.get_current_texture() {
             Ok(f) => f,
@@ -92,21 +116,64 @@ impl TriangleRenderer {
         };
         let view = frame.texture.create_view(&Default::default());
 
-        let encoder = self
+        let mut encoder = self
             .device
             .device
             .create_command_encoder(&Default::default());
-
-        let cmd_buf = self.renderer.render(
-            encoder,
-            &self.mesh_buffers,
-            &self.instances_binding,
-            &view,
-            draws,
-        );
+        {
+            let mut render_pass = self.begin_render_pass(&mut encoder, &view);
+            self.draw_colored_geometry(&mut render_pass, draws);
+        }
+        let cmd_buf = encoder.finish();
 
         self.device.queue.submit(Some(cmd_buf));
         frame.present();
+    }
+
+    fn update_uniform(&self, info: &RenderInfo) {
+        let render_data = bytemuck::bytes_of(info);
+        self.device
+            .queue
+            .write_buffer(&self.uniform_buffer, 0, render_data);
+    }
+
+    fn begin_render_pass<'a>(
+        &self,
+        encoder: &'a mut CommandEncoder,
+        view: &'a TextureView,
+    ) -> RenderPass<'a> {
+        let attachment = RenderPassColorAttachment {
+            view,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+        let attachments = [attachment];
+        let render_pass_descriptor = RenderPassDescriptor {
+            color_attachments: &attachments,
+            ..Default::default()
+        };
+        encoder.begin_render_pass(&render_pass_descriptor)
+    }
+
+    fn draw_colored_geometry<'a, 'b>(
+        &'a self,
+        pass: &mut RenderPass<'a>,
+        draws: impl Iterator<Item = &'b StaticMesh>,
+    ) {
+        pass.set_pipeline(&self.pipeline);
+        self.mesh_buffers.bind(pass);
+        pass.set_bind_group(0, &self.instances_binding, &[]);
+        pass.set_bind_group(1, &self.uniform_binding, &[]);
+        for draw in draws {
+            pass.draw_indexed(
+                draw.indices.clone(),
+                draw.base_vertex,
+                draw.instances.clone(),
+            );
+        }
     }
 
     pub fn resize(&mut self, size: WindowSize) {
@@ -159,6 +226,124 @@ impl TriangleRenderer {
             entries: &entries,
         };
         device.device.create_bind_group(&descriptor)
+    }
+
+    fn create_bind_group_layout(device: &GfxDevice, uniform_size: BufferSize) -> BindGroupLayout {
+        let uniform_entry = BindGroupLayoutEntry {
+            binding: 0,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: Some(uniform_size),
+            },
+            count: None,
+            visibility: ShaderStages::VERTEX,
+        };
+
+        let descriptor = BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[uniform_entry],
+        };
+        device.device.create_bind_group_layout(&descriptor)
+    }
+
+    fn create_uniform_binding(
+        device: &GfxDevice,
+        uniform: &Buffer,
+        layout: &BindGroupLayout,
+    ) -> BindGroup {
+        let entries = [BindGroupEntry {
+            binding: 0,
+            resource: uniform.as_entire_binding(),
+        }];
+
+        let descriptor = BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &entries,
+        };
+        device.device.create_bind_group(&descriptor)
+    }
+
+    fn create_shader(device: &GfxDevice) -> ShaderModule {
+        let shader_src = Cow::Borrowed(include_str!("shader.wgsl"));
+        let source = ShaderSource::Wgsl(shader_src);
+        let descriptor = ShaderModuleDescriptor {
+            label: None,
+            source,
+        };
+        device.device.create_shader_module(&descriptor)
+    }
+
+    fn create_pipeline_layout(
+        device: &GfxDevice,
+        instances_layout: &BindGroupLayout,
+        uniform_layout: &BindGroupLayout,
+    ) -> PipelineLayout {
+        let layouts = [instances_layout, uniform_layout];
+        let descriptor = PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &layouts,
+            push_constant_ranges: &[],
+        };
+        device.device.create_pipeline_layout(&descriptor)
+    }
+
+    fn create_pipeline(
+        device: &GfxDevice,
+        layout: &PipelineLayout,
+        output_format: TextureFormat,
+    ) -> RenderPipeline {
+        let attributes = [
+            VertexAttribute {
+                format: VertexFormat::Float32x4,
+                offset: Vertex::position_offset() as _,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: VertexFormat::Float32x4,
+                offset: Vertex::color_offset() as _,
+                shader_location: 1,
+            },
+        ];
+
+        let vertex_layout = VertexBufferLayout {
+            array_stride: Vertex::size() as _,
+            attributes: &attributes,
+            step_mode: VertexStepMode::Vertex,
+        };
+
+        let shader = Self::create_shader(device);
+
+        let vertex = VertexState {
+            module: &shader,
+            entry_point: "vs_main",
+            buffers: &[vertex_layout],
+        };
+
+        let formats = [output_format.into()];
+        let fragment = Some(FragmentState {
+            module: &shader,
+            entry_point: "fs_main",
+            targets: &formats,
+        });
+
+        let descriptor = RenderPipelineDescriptor {
+            label: None,
+            layout: Some(layout),
+            vertex,
+            fragment,
+            primitive: Default::default(),
+            multisample: Default::default(),
+            depth_stencil: None,
+            multiview: None,
+        };
+
+        device.device.create_render_pipeline(&descriptor)
+    }
+
+    fn uniform_size() -> BufferSize {
+        NonZeroU64::new(mem::size_of::<RenderInfo>() as _).expect("Zero sized uniform")
     }
 }
 
