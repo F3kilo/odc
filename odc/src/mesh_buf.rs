@@ -1,6 +1,6 @@
+use crate::{GfxDevice, Vertex};
 use std::mem;
 use wgpu::{Buffer, BufferUsages, IndexFormat, RenderPass};
-use crate::{GfxDevice, Vertex};
 
 pub struct MeshBuffers {
     vertex_buffer: Buffer,
@@ -8,15 +8,18 @@ pub struct MeshBuffers {
 }
 
 impl MeshBuffers {
-    pub fn new(device: &GfxDevice, vertex_buffer_size: u64, index_buffer_size: u64) -> Self {
+    pub const VERTEX_BUFFER_SIZE: u64 = 2u64.pow(24);
+    pub const INDEX_BUFFER_SIZE: u64 = 2u64.pow(22);
+
+    pub fn new(device: &GfxDevice) -> Self {
         let vertex_buffer = crate::create_gpu_buffer(
             device,
-            vertex_buffer_size,
+            Self::VERTEX_BUFFER_SIZE,
             BufferUsages::COPY_DST | BufferUsages::VERTEX,
         );
         let index_buffer = crate::create_gpu_buffer(
             device,
-            index_buffer_size,
+            Self::INDEX_BUFFER_SIZE,
             BufferUsages::COPY_DST | BufferUsages::INDEX,
         );
 
@@ -43,4 +46,3 @@ impl MeshBuffers {
         pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
     }
 }
-
