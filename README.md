@@ -5,7 +5,7 @@ Simple and fast render engine based on [wgpu](https://github.com/gfx-rs/wgpu) cr
 ## Triangle example
 ```rust
 use glam::Mat4;
-use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, TriangleRenderer, Vertex, WindowSize};
+use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, OdcCore, Vertex, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -16,7 +16,7 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = TriangleRenderer::new(&window, size);
+    let mut renderer = OdcCore::new(&window, size);
     renderer.write_mesh(&triangle_mesh(), 0, 0);
     let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
     let instance = InstanceInfo {
@@ -45,7 +45,7 @@ fn main() {
                     base_vertex: 0,
                     instances: 0..1,
                 };
-                renderer.render_triangle(&info, [draw].iter());
+                renderer.render(&info, [draw].iter());
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
