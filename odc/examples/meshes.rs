@@ -1,5 +1,5 @@
 use glam::{Mat4, Quat, Vec3};
-use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, TriangleRenderer, Vertex, WindowSize};
+use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, OdcCore, Vertex, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -10,7 +10,7 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = TriangleRenderer::new(&window, size);
+    let mut renderer = OdcCore::new(&window, size);
     renderer.write_mesh(&triangle_mesh(), 0, 0);
     renderer.write_mesh(&rectangle_mesh(), 3, 3);
 

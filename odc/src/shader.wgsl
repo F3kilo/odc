@@ -13,10 +13,10 @@ struct InstanceInfo {
 };
 
 [[group(0), binding(0)]]
-var<uniform> render_info: RenderInfo;
+var<storage> instance_info: InstanceInfo;
 
 [[group(1), binding(0)]]
-var<storage> instance_info: InstanceInfo;
+var<uniform> render_info: RenderInfo;
 
 struct VertexOutput {
     [[builtin(position)]] position: vec4<f32>;

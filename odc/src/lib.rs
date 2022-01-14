@@ -1,376 +1,110 @@
 use bytemuck::{Pod, Zeroable};
+use gdevice::GfxDevice;
+use instances::Instances;
+use mesh_buf::MeshBuffers;
+use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
-use std::borrow::Cow;
 use std::mem;
-use std::num::NonZeroU64;
 use std::ops::Range;
+use uniform::Uniform;
 use wgpu::{
-    Adapter, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType,
-    BufferDescriptor, BufferUsages, Color, CommandBuffer, Device, DeviceDescriptor, FragmentState,
-    IndexFormat, Instance, Limits, LoadOp, Operations, PipelineLayout, PipelineLayoutDescriptor,
-    PresentMode, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, Surface, SurfaceConfiguration, SurfaceError, TextureFormat,
-    TextureUsages, TextureView, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
-    VertexStepMode,
+    Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
+    RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView,
 };
+use swapchain::Swapchain;
 
-pub struct TriangleRenderer {
-    surface: Surface,
-    swapchain_format: TextureFormat,
-    device: Device,
-    queue: Queue,
-    vertex_buffer: Buffer,
-    index_buffer: Buffer,
-    pipeline: RenderPipeline,
-    uniform: Buffer,
-    uniform_binding: BindGroup,
-    storage: Buffer,
-    storage_binding: BindGroup,
+mod gdevice;
+mod instances;
+mod mesh_buf;
+mod pipeline;
+mod uniform;
+mod swapchain;
+
+pub struct OdcCore {
+    swapchain: Swapchain,
+    device: GfxDevice,
+    mesh_buffers: MeshBuffers,
+    instances: Instances,
+    uniform: Uniform,
+    pipeline: ColorMeshPipeline,
 }
 
-impl TriangleRenderer {
-    pub const MAX_INSTANCE_COUNT: usize = 2usize.pow(16);
-    pub const VERTEX_BUFFER_SIZE: u64 = 2u64.pow(24);
-    pub const INDEX_BUFFER_SIZE: u64 = 2u64.pow(22);
-
+impl OdcCore {
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
-        let instance = wgpu::Instance::new(Backends::all());
+        let instance = Instance::new(Backends::all());
+
         let surface = unsafe { instance.create_surface(&window) };
-        let adapter = Self::request_adapter(&instance, &surface);
-        let (device, queue) = Self::request_device(&adapter);
+        let device = GfxDevice::new(&instance, Some(&surface));
+        let swapchain = Swapchain::new(&device, surface);
+        swapchain.resize(&device, size);
 
-        let vertex_buffer = Self::create_vertex_buffer(&device);
-        let index_buffer = Self::create_index_buffer(&device);
+        let mesh_buffers = MeshBuffers::new(&device);
 
-        let uniform = Self::create_uniform_buffer(&device);
-        let uniform_layout = Self::create_uniform_layout(&device);
-        let uniform_binding = Self::create_uniform_binding(&device, &uniform, &uniform_layout);
+        let instances = Instances::new(&device);
+        let uniform = Uniform::new(&device);
 
-        let storage = Self::create_storage_buffer(&device);
-        let storage_layout = Self::create_storage_layout(&device);
-        let storage_binding = Self::create_storage_binding(&device, &storage, &storage_layout);
+        let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform, swapchain.format);
 
-        let shader = Self::create_shader(&device);
-        let pipeline_layout =
-            Self::create_pipeline_layout(&device, &uniform_layout, &storage_layout);
-        let swapchain_format = surface.get_preferred_format(&adapter).unwrap();
-        let pipeline = Self::create_pipeline(&device, &pipeline_layout, &shader, &swapchain_format);
-
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            format: swapchain_format,
-            width: size.0,
-            height: size.1,
-            present_mode: PresentMode::Mailbox,
-        };
-
-        surface.configure(&device, &config);
         Self {
-            surface,
-            swapchain_format,
+            swapchain,
             device,
-            queue,
-            vertex_buffer,
-            index_buffer,
-            pipeline,
+            mesh_buffers,
+            instances,
             uniform,
-            uniform_binding,
-            storage,
-            storage_binding,
+            pipeline,
         }
     }
 
     pub fn write_instances(&mut self, instances: &[InstanceInfo], offset: u64) {
         let instance_data = bytemuck::cast_slice(instances);
-        self.queue
-            .write_buffer(&self.storage, offset, instance_data);
+        self.device
+            .queue
+            .write_buffer(&self.instances.buffer, offset, instance_data)
     }
 
     pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
-        let vertex_data = bytemuck::cast_slice(&mesh.vertices);
-        self.queue.write_buffer(
-            &self.vertex_buffer,
-            vertex_offset * Vertex::size() as u64,
-            vertex_data,
-        );
-
-        let index_data = bytemuck::cast_slice(&mesh.indices);
-        self.queue.write_buffer(
-            &self.index_buffer,
-            index_offset * mem::size_of::<u32>() as u64,
-            index_data,
-        );
+        self.mesh_buffers
+            .write_vertices(&self.device, &mesh.vertices, vertex_offset);
+        self.mesh_buffers
+            .write_indices(&self.device, &mesh.indices, index_offset);
     }
 
-    pub fn render<'a>(
-        &self,
-        info: &RenderInfo,
-        draws: impl Iterator<Item = &'a StaticMesh>,
-    ) {
-        let info_bytes = bytemuck::bytes_of(info);
-        self.queue.write_buffer(&self.uniform, 0, info_bytes);
-        let frame = match self.surface.get_current_texture() {
+    pub fn render<'b>(&self, info: &'b RenderInfo, draws: impl Iterator<Item = &'b StaticMesh>) {
+        self.update_uniform(info);
+
+        let frame = match self.swapchain.surface.get_current_texture() {
             Ok(f) => f,
             Err(SurfaceError::Outdated) => return,
             e => e.unwrap(),
         };
         let view = frame.texture.create_view(&Default::default());
-        let cmd_buffer = self.prepare_cmd_buffer(&view, draws);
-        self.queue.submit(Some(cmd_buffer));
+
+        let mut encoder = self
+            .device
+            .device
+            .create_command_encoder(&Default::default());
+        {
+            let mut render_pass = self.begin_render_pass(&mut encoder, &view);
+            self.draw_colored_geometry(&mut render_pass, draws);
+        }
+        let cmd_buf = encoder.finish();
+
+        self.device.queue.submit(Some(cmd_buf));
         frame.present();
     }
 
-    pub fn resize(&mut self, size: WindowSize) {
-        if size.is_zero_square() {
-            return;
-        }
-
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            format: self.swapchain_format,
-            width: size.0,
-            height: size.1,
-            present_mode: PresentMode::Mailbox,
-        };
-        self.surface.configure(&self.device, &config);
+    fn update_uniform(&self, info: &RenderInfo) {
+        let render_data = bytemuck::bytes_of(info);
+        self.device
+            .queue
+            .write_buffer(&self.uniform.buffer, 0, render_data);
     }
 
-    fn request_adapter(instance: &Instance, surface: &Surface) -> Adapter {
-        let options = RequestAdapterOptions {
-            compatible_surface: Some(surface),
-            ..Default::default()
-        };
-        let adapter_fut = instance.request_adapter(&options);
-        pollster::block_on(adapter_fut).unwrap()
-    }
-
-    fn request_device(adapter: &Adapter) -> (Device, Queue) {
-        let limits = Limits::downlevel_defaults().using_resolution(adapter.limits());
-        let descriptor = DeviceDescriptor {
-            limits,
-            ..Default::default()
-        };
-        let device_fut = adapter.request_device(&descriptor, None);
-        pollster::block_on(device_fut).unwrap()
-    }
-
-    fn create_shader(device: &Device) -> ShaderModule {
-        let shader_src = Cow::Borrowed(include_str!("shader.wgsl"));
-        let source = ShaderSource::Wgsl(shader_src);
-        let descriptor = ShaderModuleDescriptor {
-            label: None,
-            source,
-        };
-        device.create_shader_module(&descriptor)
-    }
-
-    fn uniform_size() -> NonZeroU64 {
-        NonZeroU64::new(mem::size_of::<RenderInfo>() as _).expect("Zero sized uniform")
-    }
-
-    fn create_uniform_layout(device: &Device) -> BindGroupLayout {
-        let uniform_entry = BindGroupLayoutEntry {
-            binding: 0,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: Some(Self::uniform_size()),
-            },
-            count: None,
-            visibility: ShaderStages::VERTEX,
-        };
-        let descriptor = BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[uniform_entry],
-        };
-        device.create_bind_group_layout(&descriptor)
-    }
-
-    fn create_storage_layout(device: &Device) -> BindGroupLayout {
-        let alignment = device.limits().min_storage_buffer_offset_alignment;
-        let min_size = Self::aligned_storage_size(alignment as _);
-
-        let storage_entry = BindGroupLayoutEntry {
-            binding: 0,
-            ty: BindingType::Buffer {
-                ty: BufferBindingType::Storage { read_only: true },
-                has_dynamic_offset: false,
-                min_binding_size: Some(min_size),
-            },
-            count: None,
-            visibility: ShaderStages::VERTEX,
-        };
-        let descriptor = BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[storage_entry],
-        };
-        device.create_bind_group_layout(&descriptor)
-    }
-
-    fn create_pipeline_layout(
-        device: &Device,
-        uniform_layout: &BindGroupLayout,
-        storage_layout: &BindGroupLayout,
-    ) -> PipelineLayout {
-        let layouts = [uniform_layout, storage_layout];
-        let descriptor = PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &layouts,
-            push_constant_ranges: &[],
-        };
-        device.create_pipeline_layout(&descriptor)
-    }
-
-    fn create_pipeline(
-        device: &Device,
-        layout: &PipelineLayout,
-        shader: &ShaderModule,
-        swapchain_format: &TextureFormat,
-    ) -> RenderPipeline {
-        let attributes = [
-            VertexAttribute {
-                format: VertexFormat::Float32x4,
-                offset: Vertex::position_offset() as _,
-                shader_location: 0,
-            },
-            VertexAttribute {
-                format: VertexFormat::Float32x4,
-                offset: Vertex::color_offset() as _,
-                shader_location: 1,
-            },
-        ];
-
-        let vertex_layout = VertexBufferLayout {
-            array_stride: Vertex::size() as _,
-            attributes: &attributes,
-            step_mode: VertexStepMode::Vertex,
-        };
-
-        let vertex = VertexState {
-            module: shader,
-            entry_point: "vs_main",
-            buffers: &[vertex_layout],
-        };
-
-        let formats = [(*swapchain_format).into()];
-        let fragment = Some(FragmentState {
-            module: shader,
-            entry_point: "fs_main",
-            targets: &formats,
-        });
-
-        let descriptor = RenderPipelineDescriptor {
-            label: None,
-            layout: Some(layout),
-            vertex,
-            fragment,
-            primitive: Default::default(),
-            multisample: Default::default(),
-            depth_stencil: None,
-            multiview: None,
-        };
-
-        device.create_render_pipeline(&descriptor)
-    }
-
-    fn create_vertex_buffer(device: &Device) -> Buffer {
-        let descriptor = BufferDescriptor {
-            label: None,
-            size: Self::VERTEX_BUFFER_SIZE,
-            usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
-            mapped_at_creation: false,
-        };
-        device.create_buffer(&descriptor)
-    }
-
-    fn create_index_buffer(device: &Device) -> Buffer {
-        let descriptor = BufferDescriptor {
-            label: None,
-            size: Self::INDEX_BUFFER_SIZE,
-            usage: BufferUsages::COPY_DST | BufferUsages::INDEX,
-            mapped_at_creation: false,
-        };
-        device.create_buffer(&descriptor)
-    }
-
-    fn aligned_storage_size(alignment: usize) -> NonZeroU64 {
-        let size = mem::size_of::<InstanceInfo>();
-        let rem = size % alignment;
-        let result = if rem == 0 {
-            size
-        } else {
-            size + alignment - rem
-        };
-        NonZeroU64::new(result as _).expect("Unexpected zero size storage buffer item")
-    }
-
-    fn create_storage_buffer(device: &Device) -> Buffer {
-        let alignment = device.limits().min_storage_buffer_offset_alignment;
-        let aligned_size = Self::aligned_storage_size(alignment as _).get();
-        let size = aligned_size * Self::MAX_INSTANCE_COUNT as u64;
-        let descriptor = BufferDescriptor {
-            label: None,
-            size,
-            usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        };
-        device.create_buffer(&descriptor)
-    }
-
-    fn create_uniform_buffer(device: &Device) -> Buffer {
-        let descriptor = BufferDescriptor {
-            label: None,
-            size: Self::uniform_size().get() as _,
-            usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
-            mapped_at_creation: false,
-        };
-        device.create_buffer(&descriptor)
-    }
-
-    fn create_uniform_binding(
-        device: &Device,
-        uniform: &Buffer,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
-        let entries = [BindGroupEntry {
-            binding: 0,
-            resource: uniform.as_entire_binding(),
-        }];
-
-        let descriptor = BindGroupDescriptor {
-            label: None,
-            layout,
-            entries: &entries,
-        };
-        device.create_bind_group(&descriptor)
-    }
-
-    fn create_storage_binding(
-        device: &Device,
-        storage: &Buffer,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
-        let entries = [BindGroupEntry {
-            binding: 0,
-            resource: storage.as_entire_binding(),
-        }];
-
-        let descriptor = BindGroupDescriptor {
-            label: None,
-            layout,
-            entries: &entries,
-        };
-        device.create_bind_group(&descriptor)
-    }
-
-    fn prepare_cmd_buffer<'a>(
+    fn begin_render_pass<'a>(
         &self,
-        view: &TextureView,
-        draws: impl Iterator<Item = &'a StaticMesh>,
-    ) -> CommandBuffer {
-        let mut encoder = self.device.create_command_encoder(&Default::default());
+        encoder: &'a mut CommandEncoder,
+        view: &'a TextureView,
+    ) -> RenderPass<'a> {
         let attachment = RenderPassColorAttachment {
             view,
             resolve_target: None,
@@ -380,27 +114,37 @@ impl TriangleRenderer {
             },
         };
         let attachments = [attachment];
-        let color_attachments = &attachments;
         let render_pass_descriptor = RenderPassDescriptor {
-            color_attachments,
+            color_attachments: &attachments,
             ..Default::default()
         };
-        {
-            let mut render_pass = encoder.begin_render_pass(&render_pass_descriptor);
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
-            render_pass.set_bind_group(0, &self.uniform_binding, &[]);
-            render_pass.set_bind_group(1, &self.storage_binding, &[]);
-            for draw in draws {
-                render_pass.draw_indexed(
-                    draw.indices.clone(),
-                    draw.base_vertex,
-                    draw.instances.clone(),
-                );
-            }
+        encoder.begin_render_pass(&render_pass_descriptor)
+    }
+
+    fn draw_colored_geometry<'a, 'b>(
+        &'a self,
+        pass: &mut RenderPass<'a>,
+        draws: impl Iterator<Item = &'b StaticMesh>,
+    ) {
+        pass.set_pipeline(&self.pipeline.pipeline);
+        self.mesh_buffers.bind(pass);
+        pass.set_bind_group(0, &self.instances.bind_group, &[]);
+        pass.set_bind_group(1, &self.uniform.bind_group, &[]);
+        for draw in draws {
+            pass.draw_indexed(
+                draw.indices.clone(),
+                draw.base_vertex,
+                draw.instances.clone(),
+            );
         }
-        encoder.finish()
+    }
+
+    pub fn resize(&mut self, size: WindowSize) {
+        if size.is_zero_square() {
+            return;
+        }
+
+        self.swapchain.resize(&self.device, size)
     }
 }
 
@@ -430,6 +174,12 @@ pub struct StaticMesh {
 #[derive(Copy, Clone)]
 pub struct InstanceInfo {
     pub transform: Transform,
+}
+
+impl InstanceInfo {
+    pub const fn size() -> usize {
+        mem::size_of::<Self>()
+    }
 }
 
 unsafe impl Zeroable for InstanceInfo {}

@@ -83,4 +83,4 @@ const TRIANGLE_INDICES: [u32; 3] = [0, 1, 2];
 
 ## Next steps
 1. Refactoring
-2. Several renderers`
+2. Scene

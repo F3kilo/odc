@@ -1,5 +1,5 @@
 use glam::Mat4;
-use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, TriangleRenderer, Vertex, WindowSize};
+use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, OdcCore, Vertex, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -13,7 +13,7 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = TriangleRenderer::new(&window, size);
+    let mut renderer = OdcCore::new(&window, size);
     renderer.write_mesh(&triangle_mesh(), 0, 0);
 
     let rotation = CameraMovement::default();
