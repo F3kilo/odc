@@ -1,5 +1,6 @@
 use wgpu::{
-    Adapter, Device, DeviceDescriptor, Instance, Limits, Queue, RequestAdapterOptions, Surface,
+    Adapter, Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device, DeviceDescriptor,
+    Instance, Limits, Queue, RequestAdapterOptions, Surface,
 };
 
 pub struct GfxDevice {
@@ -36,5 +37,15 @@ impl GfxDevice {
         };
         let device_fut = adapter.request_device(&descriptor, None);
         pollster::block_on(device_fut).unwrap()
+    }
+
+    pub fn create_gpu_buffer(&self, size: BufferAddress, usage: BufferUsages) -> Buffer {
+        let descriptor = BufferDescriptor {
+            label: None,
+            size,
+            usage,
+            mapped_at_creation: false,
+        };
+        self.device.create_buffer(&descriptor)
     }
 }

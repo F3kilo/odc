@@ -12,16 +12,11 @@ impl MeshBuffers {
     pub const INDEX_BUFFER_SIZE: u64 = 2u64.pow(22);
 
     pub fn new(device: &GfxDevice) -> Self {
-        let vertex_buffer = crate::create_gpu_buffer(
-            device,
-            Self::VERTEX_BUFFER_SIZE,
-            BufferUsages::COPY_DST | BufferUsages::VERTEX,
-        );
-        let index_buffer = crate::create_gpu_buffer(
-            device,
-            Self::INDEX_BUFFER_SIZE,
-            BufferUsages::COPY_DST | BufferUsages::INDEX,
-        );
+        let usages = BufferUsages::COPY_DST | BufferUsages::VERTEX;
+        let vertex_buffer = device.create_gpu_buffer(Self::VERTEX_BUFFER_SIZE, usages);
+
+        let usages = BufferUsages::COPY_DST | BufferUsages::INDEX;
+        let index_buffer = device.create_gpu_buffer(Self::INDEX_BUFFER_SIZE, usages);
 
         Self {
             vertex_buffer,
