@@ -1,10 +1,10 @@
 mod common;
 
 use glam::Mat4;
-use odc::{InstanceInfo, OdcCore, RenderInfo, StaticMesh, WindowSize};
+use odc::{OdcCore, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-
+use crate::common::InstanceInfo;
 
 
 fn main() {
@@ -23,7 +23,7 @@ fn main() {
     let instance = InstanceInfo {
         transform: ident_transform,
     };
-    renderer.write_instances(&[instance], 0);
+    renderer.write_instances(bytemuck::cast_slice(&[instance]), 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

@@ -1,11 +1,12 @@
 mod common;
 
 use glam::{Mat4, Vec3};
-use odc::{InstanceInfo, OdcCore, RenderInfo, StaticMesh, Transform, WindowSize};
+use odc::{OdcCore, RenderInfo, StaticMesh, Transform, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
+use crate::common::InstanceInfo;
 
 fn main() {
     env_logger::init();
@@ -41,7 +42,7 @@ fn main() {
                 let instance = InstanceInfo {
                     transform: glam::Mat4::IDENTITY.to_cols_array_2d(),
                 };
-                renderer.write_instances(&[instance], 0);
+                renderer.write_instances(bytemuck::cast_slice(&[instance]), 0);
 
                 let draw = StaticMesh {
                     indices: 0..3,

@@ -4,7 +4,6 @@ use instances::Instances;
 use mesh_buf::MeshBuffers;
 use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
-use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
 use uniform::Uniform;
@@ -55,7 +54,7 @@ impl OdcCore {
         }
     }
 
-    pub fn write_instances(&mut self, instances: &[InstanceInfo], offset: u64) {
+    pub fn write_instances(&mut self, instances: &[u8], offset: u64) {
         let instance_data = bytemuck::cast_slice(instances);
         self.device
             .queue
@@ -171,19 +170,5 @@ pub struct StaticMesh {
     pub base_vertex: i32,
     pub instances: Range<u32>,
 }
-
-#[derive(Copy, Clone)]
-pub struct InstanceInfo {
-    pub transform: Transform,
-}
-
-impl InstanceInfo {
-    pub const fn size() -> usize {
-        mem::size_of::<Self>()
-    }
-}
-
-unsafe impl Zeroable for InstanceInfo {}
-unsafe impl Pod for InstanceInfo {}
 
 pub type Transform = [[f32; 4]; 4];

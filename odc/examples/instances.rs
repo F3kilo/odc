@@ -2,9 +2,10 @@ mod common;
 
 use bytemuck::Zeroable;
 use glam::Mat4;
-use odc::{InstanceInfo, OdcCore, RenderInfo, StaticMesh, WindowSize};
+use odc::{OdcCore, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
+use crate::common::InstanceInfo;
 
 fn main() {
     env_logger::init();
@@ -36,7 +37,7 @@ fn main() {
                 };
 
                 let instances = get_instances();
-                renderer.write_instances(&instances, 0);
+                renderer.write_instances(bytemuck::cast_slice(&instances), 0);
 
                 let draw = StaticMesh {
                     indices: 0..3,

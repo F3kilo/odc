@@ -2,6 +2,22 @@
 
 use std::mem;
 use bytemuck::{Pod, Zeroable};
+use odc::Transform;
+
+#[derive(Copy, Clone)]
+pub struct InstanceInfo {
+    pub transform: Transform,
+}
+
+impl InstanceInfo {
+    pub const fn size() -> usize {
+        mem::size_of::<Self>()
+    }
+}
+
+unsafe impl Zeroable for InstanceInfo {}
+unsafe impl Pod for InstanceInfo {}
+
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
