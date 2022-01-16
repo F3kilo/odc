@@ -1,5 +1,7 @@
+mod common;
+
 use glam::Mat4;
-use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, OdcCore, Vertex, WindowSize};
+use odc::{InstanceInfo, OdcCore, RenderInfo, StaticMesh, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -14,7 +16,9 @@ fn main() {
     let size = WindowSize(size.width, size.height);
 
     let mut renderer = OdcCore::new(&window, size);
-    renderer.write_mesh(&triangle_mesh(), 0, 0);
+    let (vertex_data, index_data) = common::triangle_mesh();
+    renderer.write_vertices(vertex_data, 0);
+    renderer.write_indices(index_data, 0);
 
     let rotation = CameraMovement::default();
     let mut camera = create_camera();
@@ -91,27 +95,3 @@ impl CameraMovement {
         [x, 0.0, z]
     }
 }
-
-fn triangle_mesh() -> Mesh {
-    Mesh {
-        vertices: TRIANGLE_VERTICES.to_vec(),
-        indices: TRIANGLE_INDICES.to_vec(),
-    }
-}
-
-const TRIANGLE_VERTICES: [Vertex; 3] = [
-    Vertex {
-        position: [-1.0, -1.0, 0.0, 1.0],
-        color: [1.0, 0.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [0.0, 1.0, 0.0, 1.0],
-        color: [0.0, 1.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [1.0, -1.0, 0.0, 1.0],
-        color: [0.0, 0.0, 1.0, 1.0],
-    },
-];
-
-const TRIANGLE_INDICES: [u32; 3] = [0, 1, 2];

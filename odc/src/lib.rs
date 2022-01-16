@@ -6,19 +6,19 @@ use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
 use std::mem;
 use std::ops::Range;
+use swapchain::Swapchain;
 use uniform::Uniform;
 use wgpu::{
     Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
     RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView,
 };
-use swapchain::Swapchain;
 
 mod gdevice;
 mod instances;
 mod mesh_buf;
 mod pipeline;
-mod uniform;
 mod swapchain;
+mod uniform;
 
 pub struct OdcCore {
     swapchain: Swapchain,
@@ -62,11 +62,12 @@ impl OdcCore {
             .write_buffer(&self.instances.buffer, offset, instance_data)
     }
 
-    pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
-        self.mesh_buffers
-            .write_vertices(&self.device, &mesh.vertices, vertex_offset);
-        self.mesh_buffers
-            .write_indices(&self.device, &mesh.indices, index_offset);
+    pub fn write_vertices(&mut self, data: &[u8], offset: u64) {
+        self.mesh_buffers.write_vertices(&self.device, data, offset);
+    }
+
+    pub fn write_indices(&mut self, data: &[u8], offset: u64) {
+        self.mesh_buffers.write_indices(&self.device, data, offset);
     }
 
     pub fn render<'b>(&self, info: &'b RenderInfo, draws: impl Iterator<Item = &'b StaticMesh>) {
@@ -186,31 +187,3 @@ unsafe impl Zeroable for InstanceInfo {}
 unsafe impl Pod for InstanceInfo {}
 
 pub type Transform = [[f32; 4]; 4];
-
-pub struct Mesh {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
-}
-
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    pub position: [f32; 4],
-    pub color: [f32; 4],
-}
-
-impl Vertex {
-    pub const fn size() -> usize {
-        mem::size_of::<Self>()
-    }
-
-    pub const fn position_offset() -> usize {
-        0
-    }
-
-    pub const fn color_offset() -> usize {
-        mem::size_of::<[f32; 4]>()
-    }
-}
-
-unsafe impl Zeroable for Vertex {}
-unsafe impl Pod for Vertex {}

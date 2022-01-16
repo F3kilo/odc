@@ -1,5 +1,4 @@
-use crate::{GfxDevice, Vertex};
-use std::mem;
+use crate::GfxDevice;
 use wgpu::{Buffer, BufferUsages, IndexFormat, RenderPass};
 
 pub struct MeshBuffers {
@@ -24,15 +23,11 @@ impl MeshBuffers {
         }
     }
 
-    pub fn write_vertices(&self, device: &GfxDevice, vertices: &[Vertex], offset: u64) {
-        let data = bytemuck::cast_slice(vertices);
-        let offset = offset * Vertex::size() as u64;
+    pub fn write_vertices(&self, device: &GfxDevice, data: &[u8], offset: u64) {
         device.queue.write_buffer(&self.vertex_buffer, offset, data);
     }
 
-    pub fn write_indices(&self, device: &GfxDevice, indices: &[u32], offset: u64) {
-        let data = bytemuck::cast_slice(indices);
-        let offset = offset * mem::size_of::<u32>() as u64;
+    pub fn write_indices(&self, device: &GfxDevice, data: &[u8], offset: u64) {
         device.queue.write_buffer(&self.index_buffer, offset, data);
     }
 
