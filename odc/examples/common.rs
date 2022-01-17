@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use std::mem;
 use bytemuck::{Pod, Zeroable};
 use odc::Transform;
+use std::mem;
 
 #[derive(Copy, Clone)]
 pub struct InstanceInfo {
@@ -17,7 +17,6 @@ impl InstanceInfo {
 
 unsafe impl Zeroable for InstanceInfo {}
 unsafe impl Pod for InstanceInfo {}
-
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -41,7 +40,6 @@ impl Vertex {
 
 unsafe impl Zeroable for Vertex {}
 unsafe impl Pod for Vertex {}
-
 
 pub fn triangle_mesh() -> (&'static [u8], &'static [u8]) {
     (

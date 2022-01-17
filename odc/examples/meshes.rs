@@ -2,7 +2,7 @@ mod common;
 
 use crate::common::InstanceInfo;
 use glam::{Mat4, Quat, Vec3};
-use odc::{OdcCore, RenderInfo, StaticMesh, WindowSize};
+use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -13,7 +13,7 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = OdcCore::new(&window, size);
+    let mut renderer = Odc::new(&window, size);
 
     let (vertex_data, index_data) = common::triangle_mesh();
     renderer.write_vertices(vertex_data, 0);
@@ -71,7 +71,10 @@ fn main() {
                     base_vertex: 3,
                     instances: 1..2,
                 };
-                renderer.render(&info, [draw_triangle, draw_rectangle].iter());
+                let draws = Draws {
+                    static_mesh: &[draw_triangle, draw_rectangle],
+                };
+                renderer.render(&info, draws);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

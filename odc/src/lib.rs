@@ -19,7 +19,7 @@ mod pipeline;
 mod swapchain;
 mod uniform;
 
-pub struct OdcCore {
+pub struct Odc {
     swapchain: Swapchain,
     device: GfxDevice,
     mesh_buffers: MeshBuffers,
@@ -28,7 +28,7 @@ pub struct OdcCore {
     pipeline: ColorMeshPipeline,
 }
 
-impl OdcCore {
+impl Odc {
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
         let instance = Instance::new(Backends::all());
 
@@ -69,7 +69,7 @@ impl OdcCore {
         self.mesh_buffers.write_indices(&self.device, data, offset);
     }
 
-    pub fn render<'b>(&self, info: &'b RenderInfo, draws: impl Iterator<Item = &'b StaticMesh>) {
+    pub fn render(&self, info: &RenderInfo, draws: Draws) {
         self.update_uniform(info);
 
         let frame = match self.swapchain.surface.get_current_texture() {
@@ -121,16 +121,12 @@ impl OdcCore {
         encoder.begin_render_pass(&render_pass_descriptor)
     }
 
-    fn draw_colored_geometry<'a, 'b>(
-        &'a self,
-        pass: &mut RenderPass<'a>,
-        draws: impl Iterator<Item = &'b StaticMesh>,
-    ) {
+    fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: Draws) {
         pass.set_pipeline(&self.pipeline.pipeline);
         self.mesh_buffers.bind(pass);
         pass.set_bind_group(0, &self.instances.bind_group, &[]);
         pass.set_bind_group(1, &self.uniform.bind_group, &[]);
-        for draw in draws {
+        for draw in draws.static_mesh {
             pass.draw_indexed(
                 draw.indices.clone(),
                 draw.base_vertex,
@@ -172,3 +168,7 @@ pub struct StaticMesh {
 }
 
 pub type Transform = [[f32; 4]; 4];
+
+pub struct Draws<'a> {
+    pub static_mesh: &'a [StaticMesh],
+}
