@@ -1,8 +1,7 @@
-use crate::{GfxDevice, InstanceInfo};
+use crate::GfxDevice;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferSize, BufferUsages,
-    ShaderStages,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferUsages, ShaderStages,
 };
 
 pub struct Instances {
@@ -25,22 +24,19 @@ impl Instances {
         }
     }
 
-    pub const MAX_INSTANCE_COUNT: usize = 2usize.pow(16);
+    pub const INSTANCE_BUFFER_SIZE: u64 = 2u64.pow(16);
 
     fn instances_size() -> u64 {
-        InstanceInfo::size() as u64 * Self::MAX_INSTANCE_COUNT as u64
+        Self::INSTANCE_BUFFER_SIZE
     }
 
     fn create_layout(device: &GfxDevice) -> BindGroupLayout {
-        let storage_min_size =
-            BufferSize::new(InstanceInfo::size() as _).expect("unexpected zero size instance");
-
         let storage_entry = BindGroupLayoutEntry {
             binding: 0,
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
-                min_binding_size: Some(storage_min_size),
+                min_binding_size: None,
             },
             count: None,
             visibility: ShaderStages::VERTEX,

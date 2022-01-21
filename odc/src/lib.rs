@@ -1,26 +1,26 @@
+use std::mem;
 use bytemuck::{Pod, Zeroable};
 use gdevice::GfxDevice;
 use instances::Instances;
 use mesh_buf::MeshBuffers;
 use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
-use std::mem;
 use std::ops::Range;
+use swapchain::Swapchain;
 use uniform::Uniform;
 use wgpu::{
     Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
     RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView,
 };
-use swapchain::Swapchain;
 
 mod gdevice;
 mod instances;
 mod mesh_buf;
 mod pipeline;
-mod uniform;
 mod swapchain;
+mod uniform;
 
-pub struct OdcCore {
+pub struct Odc {
     swapchain: Swapchain,
     device: GfxDevice,
     mesh_buffers: MeshBuffers,
@@ -29,7 +29,7 @@ pub struct OdcCore {
     pipeline: ColorMeshPipeline,
 }
 
-impl OdcCore {
+impl Odc {
     pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
         let instance = Instance::new(Backends::all());
 
@@ -55,21 +55,25 @@ impl OdcCore {
         }
     }
 
-    pub fn write_instances(&mut self, instances: &[InstanceInfo], offset: u64) {
+    pub fn write_instances<I: Pod>(&mut self, instances: &[I], offset: u64) {
+        let byte_offset = mem::size_of::<I>() as u64 * offset;
         let instance_data = bytemuck::cast_slice(instances);
         self.device
             .queue
-            .write_buffer(&self.instances.buffer, offset, instance_data)
+            .write_buffer(&self.instances.buffer, byte_offset, instance_data)
     }
 
-    pub fn write_mesh(&mut self, mesh: &Mesh, vertex_offset: u64, index_offset: u64) {
-        self.mesh_buffers
-            .write_vertices(&self.device, &mesh.vertices, vertex_offset);
-        self.mesh_buffers
-            .write_indices(&self.device, &mesh.indices, index_offset);
+    pub fn write_vertices<V: Pod>(&mut self, vertices: &[V], offset: u64) {
+        let byte_offset = mem::size_of::<V>() as u64 * offset;
+        let data = bytemuck::cast_slice(vertices);
+        self.mesh_buffers.write_vertices(&self.device, data, byte_offset);
     }
 
-    pub fn render<'b>(&self, info: &'b RenderInfo, draws: impl Iterator<Item = &'b StaticMesh>) {
+    pub fn write_indices(&mut self, indices: &[u32], offset: u64) {
+        self.mesh_buffers.write_indices(&self.device, indices, offset);
+    }
+
+    pub fn render(&self, info: &RenderInfo, draws: Draws) {
         self.update_uniform(info);
 
         let frame = match self.swapchain.surface.get_current_texture() {
@@ -121,16 +125,12 @@ impl OdcCore {
         encoder.begin_render_pass(&render_pass_descriptor)
     }
 
-    fn draw_colored_geometry<'a, 'b>(
-        &'a self,
-        pass: &mut RenderPass<'a>,
-        draws: impl Iterator<Item = &'b StaticMesh>,
-    ) {
+    fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: Draws) {
         pass.set_pipeline(&self.pipeline.pipeline);
         self.mesh_buffers.bind(pass);
         pass.set_bind_group(0, &self.instances.bind_group, &[]);
         pass.set_bind_group(1, &self.uniform.bind_group, &[]);
-        for draw in draws {
+        for draw in draws.static_mesh {
             pass.draw_indexed(
                 draw.indices.clone(),
                 draw.base_vertex,
@@ -171,46 +171,8 @@ pub struct StaticMesh {
     pub instances: Range<u32>,
 }
 
-#[derive(Copy, Clone)]
-pub struct InstanceInfo {
-    pub transform: Transform,
-}
-
-impl InstanceInfo {
-    pub const fn size() -> usize {
-        mem::size_of::<Self>()
-    }
-}
-
-unsafe impl Zeroable for InstanceInfo {}
-unsafe impl Pod for InstanceInfo {}
-
 pub type Transform = [[f32; 4]; 4];
 
-pub struct Mesh {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
+pub struct Draws<'a> {
+    pub static_mesh: &'a [StaticMesh],
 }
-
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    pub position: [f32; 4],
-    pub color: [f32; 4],
-}
-
-impl Vertex {
-    pub const fn size() -> usize {
-        mem::size_of::<Self>()
-    }
-
-    pub const fn position_offset() -> usize {
-        0
-    }
-
-    pub const fn color_offset() -> usize {
-        mem::size_of::<[f32; 4]>()
-    }
-}
-
-unsafe impl Zeroable for Vertex {}
-unsafe impl Pod for Vertex {}

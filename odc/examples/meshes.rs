@@ -1,5 +1,8 @@
+mod common;
+
+use crate::common::InstanceInfo;
 use glam::{Mat4, Quat, Vec3};
-use odc::{InstanceInfo, Mesh, RenderInfo, StaticMesh, OdcCore, Vertex, WindowSize};
+use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -10,9 +13,17 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = OdcCore::new(&window, size);
-    renderer.write_mesh(&triangle_mesh(), 0, 0);
-    renderer.write_mesh(&rectangle_mesh(), 3, 3);
+    let mut renderer = Odc::new(&window, size);
+
+    let (vertex_data, index_data) = common::triangle_mesh();
+    renderer.write_vertices(vertex_data, 0);
+    renderer.write_indices(index_data, 0);
+
+    let vertex_offset = vertex_data.len();
+    let index_offset = index_data.len();
+    let (vertex_data, index_data) = common::rectangle_mesh();
+    renderer.write_vertices(vertex_data, vertex_offset as _);
+    renderer.write_indices(index_data, index_offset as _);
 
     let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
     let scale = Vec3::new(0.4, 0.4, 0.4);
@@ -30,7 +41,8 @@ fn main() {
         transform: right_transform,
     };
 
-    renderer.write_instances(&[left_instance, right_instance], 0);
+    let instances = [left_instance, right_instance];
+    renderer.write_instances(&instances, 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
@@ -59,7 +71,10 @@ fn main() {
                     base_vertex: 3,
                     instances: 1..2,
                 };
-                renderer.render(&info, [draw_triangle, draw_rectangle].iter());
+                let draws = Draws {
+                    static_mesh: &[draw_triangle, draw_rectangle],
+                };
+                renderer.render(&info, draws);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -69,55 +84,3 @@ fn main() {
         }
     });
 }
-
-fn triangle_mesh() -> Mesh {
-    Mesh {
-        vertices: TRIANGLE_VERTICES.to_vec(),
-        indices: TRIANGLE_INDICES.to_vec(),
-    }
-}
-
-fn rectangle_mesh() -> Mesh {
-    Mesh {
-        vertices: RECTANGLE_VERTICES.to_vec(),
-        indices: RECTANGLE_INDICES.to_vec(),
-    }
-}
-
-const TRIANGLE_VERTICES: [Vertex; 3] = [
-    Vertex {
-        position: [-1.0, -1.0, 0.0, 1.0],
-        color: [1.0, 0.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [0.0, 1.0, 0.0, 1.0],
-        color: [0.0, 1.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [1.0, -1.0, 0.0, 1.0],
-        color: [0.0, 0.0, 1.0, 1.0],
-    },
-];
-
-const TRIANGLE_INDICES: [u32; 3] = [0, 1, 2];
-
-const RECTANGLE_VERTICES: [Vertex; 4] = [
-    Vertex {
-        position: [-1.0, -1.0, 0.0, 1.0],
-        color: [0.0, 1.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [-1.0, 1.0, 0.0, 1.0],
-        color: [1.0, 0.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [1.0, 1.0, 0.0, 1.0],
-        color: [0.0, 0.0, 1.0, 1.0],
-    },
-    Vertex {
-        position: [1.0, -1.0, 0.0, 1.0],
-        color: [0.0, 1.0, 1.0, 1.0],
-    },
-];
-
-const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];

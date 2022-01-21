@@ -1,7 +1,8 @@
 use crate::instances::Instances;
 use crate::uniform::Uniform;
-use crate::{GfxDevice, Vertex};
+use crate::GfxDevice;
 use std::borrow::Cow;
+use std::mem;
 use wgpu::{
     BindGroupLayout, FragmentState, PipelineLayout, PipelineLayoutDescriptor, RenderPipeline,
     RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, TextureFormat,
@@ -53,21 +54,22 @@ impl ColorMeshPipeline {
         layout: &PipelineLayout,
         output_format: TextureFormat,
     ) -> RenderPipeline {
+        const FLOAT_SIZE: u64 = mem::size_of::<f32>() as _;
         let attributes = [
             VertexAttribute {
                 format: VertexFormat::Float32x4,
-                offset: Vertex::position_offset() as _,
+                offset: 0,
                 shader_location: 0,
             },
             VertexAttribute {
                 format: VertexFormat::Float32x4,
-                offset: Vertex::color_offset() as _,
+                offset: 4 * FLOAT_SIZE,
                 shader_location: 1,
             },
         ];
 
         let vertex_layout = VertexBufferLayout {
-            array_stride: Vertex::size() as _,
+            array_stride: 8 * FLOAT_SIZE,
             attributes: &attributes,
             step_mode: VertexStepMode::Vertex,
         };
