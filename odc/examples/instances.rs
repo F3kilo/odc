@@ -23,7 +23,7 @@ fn main() {
     let mut renderer = Odc::new(&config);
     let (vertex_data, index_data) = common::triangle_mesh();
     renderer.write_buffer(&0, vertex_data, 0);
-    renderer.write_buffer(&1, index_data, 0);
+    renderer.write_buffer(&2, index_data, 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

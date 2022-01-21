@@ -1,7 +1,7 @@
 mod common;
 
 use crate::common::InstanceInfo;
-use glam::Mat4;
+use glam::{Vec3, Mat4};
 use odc::config::WindowConfig;
 use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
@@ -25,8 +25,10 @@ fn main() {
     renderer.write_buffer(&2, index_data, 0);
 
     let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
+
+    let scale = Vec3::new(0.9, 0.5, 0.5);
     let instance = InstanceInfo {
-        transform: ident_transform,
+        transform: Mat4::from_scale(scale).to_cols_array_2d(),
     };
     renderer.write_buffer(&1, &[instance], 0);
 
