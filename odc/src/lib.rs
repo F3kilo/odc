@@ -1,10 +1,10 @@
-use std::mem;
 use bytemuck::{Pod, Zeroable};
 use gdevice::GfxDevice;
 use instances::Instances;
 use mesh_buf::MeshBuffers;
 use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
+use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
 use uniform::Uniform;
@@ -21,7 +21,7 @@ mod swapchain;
 mod uniform;
 
 pub struct Odc {
-    swapchain: Swapchain,
+    swapchain: Option<Swapchain>,
     device: GfxDevice,
     mesh_buffers: MeshBuffers,
     instances: Instances,
@@ -30,13 +30,19 @@ pub struct Odc {
 }
 
 impl Odc {
-    pub fn new(window: &impl HasRawWindowHandle, size: WindowSize) -> Self {
+    pub fn new<Window: HasRawWindowHandle>(config: &Config<Window>) -> Self {
         let instance = Instance::new(Backends::all());
 
-        let surface = unsafe { instance.create_surface(&window) };
-        let device = GfxDevice::new(&instance, Some(&surface));
-        let swapchain = Swapchain::new(&device, surface);
-        swapchain.resize(&device, size);
+        let (device, swapchain) = if let Some(window) = &config.window {
+            let surface = unsafe { instance.create_surface(&window.handle) };
+            let device = GfxDevice::new(&instance, Some(&surface));
+            let swapchain = Swapchain::new(&device, surface);
+            swapchain.resize(&device, window.size);
+            (device, Some(swapchain))
+        } else {
+            let device = GfxDevice::new(&instance, None);
+            (device, None)
+        };
 
         let mesh_buffers = MeshBuffers::new(&device);
 
@@ -66,11 +72,13 @@ impl Odc {
     pub fn write_vertices<V: Pod>(&mut self, vertices: &[V], offset: u64) {
         let byte_offset = mem::size_of::<V>() as u64 * offset;
         let data = bytemuck::cast_slice(vertices);
-        self.mesh_buffers.write_vertices(&self.device, data, byte_offset);
+        self.mesh_buffers
+            .write_vertices(&self.device, data, byte_offset);
     }
 
     pub fn write_indices(&mut self, indices: &[u32], offset: u64) {
-        self.mesh_buffers.write_indices(&self.device, indices, offset);
+        self.mesh_buffers
+            .write_indices(&self.device, indices, offset);
     }
 
     pub fn render(&self, info: &RenderInfo, draws: Draws) {
@@ -148,6 +156,7 @@ impl Odc {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone)]
 pub struct WindowSize(pub u32, pub u32);
 
 impl WindowSize {
@@ -175,4 +184,18 @@ pub type Transform = [[f32; 4]; 4];
 
 pub struct Draws<'a> {
     pub static_mesh: &'a [StaticMesh],
+}
+
+pub struct Config<Window: HasRawWindowHandle> {
+    pub window: Option<WindowConfig<Window>>,
+    pub device: DeviceConfig,
+}
+
+pub struct WindowConfig<Window: HasRawWindowHandle> {
+    pub handle: Window,
+    pub size: WindowSize,
+}
+
+pub struct DeviceConfig {
+    name: Option<String>,
 }
