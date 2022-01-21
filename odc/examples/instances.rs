@@ -22,8 +22,8 @@ fn main() {
     let config = common::color_mesh_renderer_config(window_config);
     let mut renderer = Odc::new(&config);
     let (vertex_data, index_data) = common::triangle_mesh();
-    renderer.write_vertices(vertex_data, 0);
-    renderer.write_indices(index_data, 0);
+    renderer.write_buffer(&0, vertex_data, 0);
+    renderer.write_buffer(&1, index_data, 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

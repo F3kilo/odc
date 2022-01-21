@@ -22,14 +22,14 @@ fn main() {
     let mut renderer = Odc::new(&config);
 
     let (vertex_data, index_data) = common::triangle_mesh();
-    renderer.write_vertices(vertex_data, 0);
-    renderer.write_indices(index_data, 0);
+    renderer.write_buffer(&0, vertex_data, 0);
+    renderer.write_buffer(&1, index_data, 0);
 
     let vertex_offset = vertex_data.len();
     let index_offset = index_data.len();
     let (vertex_data, index_data) = common::rectangle_mesh();
-    renderer.write_vertices(vertex_data, vertex_offset as _);
-    renderer.write_indices(index_data, index_offset as _);
+    renderer.write_buffer(&0, vertex_data, vertex_offset as _);
+    renderer.write_buffer(&1, index_data, index_offset as _);
 
     let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
     let scale = Vec3::new(0.4, 0.4, 0.4);
