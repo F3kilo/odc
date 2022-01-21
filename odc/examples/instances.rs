@@ -37,7 +37,7 @@ fn main() {
                 };
 
                 let instances = get_instances();
-                renderer.write_instances(bytemuck::cast_slice(&instances), 0);
+                renderer.write_instances(&instances, 0);
 
                 let draw = StaticMesh {
                     indices: 0..3,

@@ -41,11 +41,8 @@ impl Vertex {
 unsafe impl Zeroable for Vertex {}
 unsafe impl Pod for Vertex {}
 
-pub fn triangle_mesh() -> (&'static [u8], &'static [u8]) {
-    (
-        bytemuck::cast_slice(&TRIANGLE_VERTICES),
-        bytemuck::cast_slice(&TRIANGLE_INDICES),
-    )
+pub fn triangle_mesh() -> (&'static [Vertex], &'static [u32]) {
+    (&TRIANGLE_VERTICES, &TRIANGLE_INDICES)
 }
 
 pub const TRIANGLE_VERTICES: [Vertex; 3] = [
@@ -65,11 +62,8 @@ pub const TRIANGLE_VERTICES: [Vertex; 3] = [
 
 pub const TRIANGLE_INDICES: [u32; 3] = [0, 1, 2];
 
-pub fn rectangle_mesh() -> (&'static [u8], &'static [u8]) {
-    (
-        bytemuck::cast_slice(&RECTANGLE_VERTICES),
-        bytemuck::cast_slice(&RECTANGLE_INDICES),
-    )
+pub fn rectangle_mesh() -> (&'static [Vertex], &'static [u32]) {
+    (&RECTANGLE_VERTICES, &RECTANGLE_INDICES)
 }
 
 pub const RECTANGLE_VERTICES: [Vertex; 4] = [

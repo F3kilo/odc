@@ -22,7 +22,7 @@ fn main() {
     let instance = InstanceInfo {
         transform: ident_transform,
     };
-    renderer.write_instances(bytemuck::cast_slice(&[instance]), 0);
+    renderer.write_instances(&[instance], 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

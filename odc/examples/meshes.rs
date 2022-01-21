@@ -42,7 +42,7 @@ fn main() {
     };
 
     let instances = [left_instance, right_instance];
-    renderer.write_instances(bytemuck::cast_slice(&instances), 0);
+    renderer.write_instances(&instances, 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
