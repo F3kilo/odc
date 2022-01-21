@@ -1,7 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use config::{Config, ResourceConfig};
 use gdevice::GfxDevice;
-use instances::Instances;
 use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
 use std::collections::HashMap;
@@ -10,13 +9,13 @@ use std::ops::Range;
 use swapchain::Swapchain;
 use uniform::Uniform;
 use wgpu::{
-    Backends, Buffer, BufferUsages, Color, CommandEncoder, Instance, LoadOp, Operations,
-    RenderPass, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView, IndexFormat
+    Backends, Buffer, BufferUsages, Color, CommandEncoder, IndexFormat, Instance, LoadOp,
+    Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError,
+    TextureView,
 };
 
 pub mod config;
 mod gdevice;
-mod instances;
 mod pipeline;
 mod swapchain;
 mod uniform;
@@ -25,7 +24,6 @@ pub struct Odc {
     swapchain: Option<Swapchain>,
     device: GfxDevice,
     buffers: HashMap<u64, Buffer>,
-    instances: Instances,
     uniform: Uniform,
     pipeline: ColorMeshPipeline,
 }
@@ -65,12 +63,10 @@ impl Odc {
             };
         }
 
-        let instances = Instances::new(&device);
         let uniform = Uniform::new(&device);
 
         let pipeline = ColorMeshPipeline::new(
             &device,
-            &instances,
             &uniform,
             swapchain.as_ref().unwrap().format,
         );
@@ -79,18 +75,9 @@ impl Odc {
             swapchain,
             device,
             buffers,
-            instances,
             uniform,
             pipeline,
         }
-    }
-
-    pub fn write_instances<I: Pod>(&mut self, instances: &[I], offset: u64) {
-        let byte_offset = mem::size_of::<I>() as u64 * offset;
-        let instance_data = bytemuck::cast_slice(instances);
-        self.device
-            .queue
-            .write_buffer(&self.instances.buffer, byte_offset, instance_data)
     }
 
     pub fn write_buffer<T: Pod>(&self, buffer_id: &u64, items: &[T], offset: u64) {
@@ -102,7 +89,9 @@ impl Odc {
         };
         let byte_offset = mem::size_of::<T>() as u64 * offset;
         let data_bytes = bytemuck::cast_slice(items);
-        self.device.queue.write_buffer(buffer, byte_offset, data_bytes);
+        self.device
+            .queue
+            .write_buffer(buffer, byte_offset, data_bytes);
     }
 
     pub fn render(&self, info: &RenderInfo, draws: Draws) {
@@ -162,9 +151,9 @@ impl Odc {
     fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: Draws) {
         pass.set_pipeline(&self.pipeline.pipeline);
         pass.set_vertex_buffer(0, self.buffers[&0].slice(..));
-        pass.set_index_buffer(self.buffers[&1].slice(..), IndexFormat::Uint32);
-        pass.set_bind_group(0, &self.instances.bind_group, &[]);
-        pass.set_bind_group(1, &self.uniform.bind_group, &[]);
+        pass.set_vertex_buffer(1, self.buffers[&1].slice(..));
+        pass.set_index_buffer(self.buffers[&2].slice(..), IndexFormat::Uint32);
+        pass.set_bind_group(0, &self.uniform.bind_group, &[]);
         for draw in draws.static_mesh {
             pass.draw_indexed(
                 draw.indices.clone(),

@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
-use odc::config::{Config, DeviceConfig, WindowConfig, ResourceConfig};
+use odc::config::{Config, DeviceConfig, ResourceConfig, WindowConfig};
 use odc::Transform;
 use raw_window_handle::HasRawWindowHandle;
-use std::mem;
 use std::collections::HashMap;
+use std::mem;
 
 #[derive(Copy, Clone)]
 pub struct InstanceInfo {
@@ -96,10 +96,12 @@ pub fn color_mesh_renderer_config<W: HasRawWindowHandle>(
     let device = DeviceConfig { name: None };
 
     let vertex_buffer = ResourceConfig::VertexBuffer(1 << 16);
+    let instance_buffer = ResourceConfig::VertexBuffer(1 << 16);
     let index_buffer = ResourceConfig::IndexBuffer(1 << 16);
     let mut resources = HashMap::new();
     resources.insert(0, vertex_buffer);
-    resources.insert(1, index_buffer);
+    resources.insert(1, instance_buffer);
+    resources.insert(2, index_buffer);
 
     Config {
         window: Some(window_config),

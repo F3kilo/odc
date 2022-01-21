@@ -22,13 +22,13 @@ fn main() {
     let mut renderer = Odc::new(&config);
     let (vertex_data, index_data) = common::triangle_mesh();
     renderer.write_buffer(&0, vertex_data, 0);
-    renderer.write_buffer(&1, index_data, 0);
+    renderer.write_buffer(&2, index_data, 0);
 
     let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
     let instance = InstanceInfo {
         transform: ident_transform,
     };
-    renderer.write_instances(&[instance], 0);
+    renderer.write_buffer(&1, &[instance], 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

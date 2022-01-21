@@ -48,7 +48,7 @@ fn main() {
     };
 
     let instances = [left_instance, right_instance];
-    renderer.write_instances(&instances, 0);
+    renderer.write_buffer(&1, &[instances], 0);
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

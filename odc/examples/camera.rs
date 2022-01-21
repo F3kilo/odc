@@ -49,7 +49,7 @@ fn main() {
                 let instance = InstanceInfo {
                     transform: glam::Mat4::IDENTITY.to_cols_array_2d(),
                 };
-                renderer.write_instances(&[instance], 0);
+                renderer.write_buffer(&1, &[instance], 0);
 
                 let draw = StaticMesh {
                     indices: 0..3,

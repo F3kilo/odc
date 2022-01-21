@@ -1,4 +1,3 @@
-use crate::instances::Instances;
 use crate::uniform::Uniform;
 use crate::GfxDevice;
 use std::borrow::Cow;
@@ -16,15 +15,15 @@ pub struct ColorMeshPipeline {
 impl ColorMeshPipeline {
     pub fn new(
         device: &GfxDevice,
-        instances: &Instances,
         uniform: &Uniform,
         format: TextureFormat,
     ) -> Self {
-        let pipeline_layout = Self::create_layout(device, &instances.layout, &uniform.layout);
+        let pipeline_layout = Self::create_layout(device, &uniform.layout);
         let pipeline = Self::create_pipeline(device, &pipeline_layout, format);
 
         Self { pipeline }
     }
+
     fn create_shader(device: &GfxDevice) -> ShaderModule {
         let shader_src = Cow::Borrowed(include_str!("shader.wgsl"));
         let source = ShaderSource::Wgsl(shader_src);
@@ -37,10 +36,9 @@ impl ColorMeshPipeline {
 
     fn create_layout(
         device: &GfxDevice,
-        instances_layout: &BindGroupLayout,
         uniform_layout: &BindGroupLayout,
     ) -> PipelineLayout {
-        let layouts = [instances_layout, uniform_layout];
+        let layouts = [uniform_layout];
         let descriptor = PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &layouts,
@@ -74,12 +72,19 @@ impl ColorMeshPipeline {
             step_mode: VertexStepMode::Vertex,
         };
 
+        let instance_attributes = wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4];
+        let instance_layout = VertexBufferLayout {
+            array_stride: 16 * FLOAT_SIZE,
+            attributes: &instance_attributes,
+            step_mode: VertexStepMode::Instance,
+        };
+
         let shader = Self::create_shader(device);
 
         let vertex = VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[vertex_layout],
+            buffers: &[vertex_layout, instance_layout],
         };
 
         let formats = [output_format.into()];
