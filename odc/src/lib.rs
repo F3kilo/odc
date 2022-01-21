@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use config::Config;
 use gdevice::GfxDevice;
 use instances::Instances;
 use mesh_buf::MeshBuffers;
@@ -13,6 +14,7 @@ use wgpu::{
     RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView,
 };
 
+pub mod config;
 mod gdevice;
 mod instances;
 mod mesh_buf;
@@ -49,7 +51,12 @@ impl Odc {
         let instances = Instances::new(&device);
         let uniform = Uniform::new(&device);
 
-        let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform, swapchain.format);
+        let pipeline = ColorMeshPipeline::new(
+            &device,
+            &instances,
+            &uniform,
+            swapchain.as_ref().unwrap().format,
+        );
 
         Self {
             swapchain,
@@ -82,9 +89,11 @@ impl Odc {
     }
 
     pub fn render(&self, info: &RenderInfo, draws: Draws) {
+        let swapchain = self.swapchain.as_ref().unwrap();
+
         self.update_uniform(info);
 
-        let frame = match self.swapchain.surface.get_current_texture() {
+        let frame = match swapchain.surface.get_current_texture() {
             Ok(f) => f,
             Err(SurfaceError::Outdated) => return,
             e => e.unwrap(),
@@ -152,7 +161,7 @@ impl Odc {
             return;
         }
 
-        self.swapchain.resize(&self.device, size)
+        self.swapchain.as_ref().unwrap().resize(&self.device, size)
     }
 }
 
@@ -184,18 +193,4 @@ pub type Transform = [[f32; 4]; 4];
 
 pub struct Draws<'a> {
     pub static_mesh: &'a [StaticMesh],
-}
-
-pub struct Config<Window: HasRawWindowHandle> {
-    pub window: Option<WindowConfig<Window>>,
-    pub device: DeviceConfig,
-}
-
-pub struct WindowConfig<Window: HasRawWindowHandle> {
-    pub handle: Window,
-    pub size: WindowSize,
-}
-
-pub struct DeviceConfig {
-    name: Option<String>,
 }

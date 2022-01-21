@@ -2,6 +2,7 @@ mod common;
 
 use crate::common::InstanceInfo;
 use glam::Mat4;
+use odc::config::WindowConfig;
 use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
@@ -16,7 +17,12 @@ fn main() {
     let size = window.inner_size();
     let size = WindowSize(size.width, size.height);
 
-    let mut renderer = Odc::new(&window, size);
+    let window_config = WindowConfig {
+        handle: &window,
+        size,
+    };
+    let config = common::color_mesh_renderer_config(window_config);
+    let mut renderer = Odc::new(&config);
     let (vertex_data, index_data) = common::triangle_mesh();
     renderer.write_vertices(vertex_data, 0);
     renderer.write_indices(index_data, 0);

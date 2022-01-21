@@ -1,6 +1,6 @@
 use wgpu::{
     Adapter, Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device, DeviceDescriptor,
-    Instance, Limits, Queue, RequestAdapterOptions, Surface,
+    Instance, Limits, PowerPreference, Queue, RequestAdapterOptions, Surface,
 };
 
 pub struct GfxDevice {
@@ -23,6 +23,7 @@ impl GfxDevice {
     fn request_adapter(instance: &Instance, surface: Option<&Surface>) -> Adapter {
         let options = RequestAdapterOptions {
             compatible_surface: surface,
+            power_preference: PowerPreference::HighPerformance,
             ..Default::default()
         };
         let adapter_fut = instance.request_adapter(&options);

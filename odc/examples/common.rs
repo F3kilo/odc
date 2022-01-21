@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
+use odc::config::{Config, DeviceConfig, WindowConfig};
 use odc::Transform;
+use raw_window_handle::HasRawWindowHandle;
 use std::mem;
 
 #[derive(Copy, Clone)]
@@ -86,5 +88,15 @@ pub const RECTANGLE_VERTICES: [Vertex; 4] = [
 ];
 
 pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
+
+pub fn color_mesh_renderer_config<W: HasRawWindowHandle>(
+    window_config: WindowConfig<W>,
+) -> Config<W> {
+    let device = DeviceConfig { name: None };
+    Config {
+        window: Some(window_config),
+        device,
+    }
+}
 
 fn main() {}
