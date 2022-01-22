@@ -1,9 +1,9 @@
 mod common;
 
-use crate::common::InstanceInfo;
+use crate::common::{InstanceInfo, RenderInfo};
 use glam::{Mat4, Vec3};
-use odc::config::WindowConfig;
-use odc::{Draws, Odc, RenderInfo, StaticMesh, Transform, WindowSize};
+use odc::config::{WindowConfig};
+use odc::{Draws, Odc, StaticMesh, Transform, WindowSize};
 use std::f32::consts::PI;
 use std::time::Instant;
 use winit::event::{Event, WindowEvent};

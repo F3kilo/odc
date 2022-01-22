@@ -1,10 +1,10 @@
 mod common;
 
-use crate::common::InstanceInfo;
+use crate::common::{InstanceInfo, RenderInfo};
 use bytemuck::Zeroable;
 use glam::Mat4;
-use odc::config::WindowConfig;
-use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
+use odc::config::{WindowConfig};
+use odc::{Draws, Odc, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -42,7 +42,6 @@ fn main() {
                     view_proj: ident_transform,
                 };
                 renderer.write_buffer(&3, &[info], 0);
-
 
                 let instances = get_instances();
                 renderer.write_buffer(&1, &[instances], 0);

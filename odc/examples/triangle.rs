@@ -1,9 +1,9 @@
 mod common;
 
-use crate::common::InstanceInfo;
+use crate::common::{InstanceInfo, RenderInfo};
 use glam::Mat4;
-use odc::config::WindowConfig;
-use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
+use odc::config::{WindowConfig};
+use odc::{Draws, Odc, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 

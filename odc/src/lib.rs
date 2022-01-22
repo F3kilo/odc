@@ -1,4 +1,4 @@
-use bytemuck::{Pod, Zeroable};
+use bytemuck::Pod;
 use config::{Config, ResourceConfig};
 use gdevice::GfxDevice;
 use pipeline::ColorMeshPipeline;
@@ -164,15 +164,6 @@ impl WindowSize {
         self.0 * self.1 == 0
     }
 }
-
-#[derive(Copy, Clone)]
-pub struct RenderInfo {
-    pub world: Transform,
-    pub view_proj: Transform,
-}
-
-unsafe impl Zeroable for RenderInfo {}
-unsafe impl Pod for RenderInfo {}
 
 pub struct StaticMesh {
     pub indices: Range<u32>,

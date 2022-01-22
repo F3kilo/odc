@@ -90,6 +90,15 @@ pub const RECTANGLE_VERTICES: [Vertex; 4] = [
 
 pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
+#[derive(Copy, Clone)]
+pub struct RenderInfo {
+    pub world: Transform,
+    pub view_proj: Transform,
+}
+
+unsafe impl Zeroable for RenderInfo {}
+unsafe impl Pod for RenderInfo {}
+
 pub fn color_mesh_renderer_config<W: HasRawWindowHandle>(
     window_config: WindowConfig<W>,
 ) -> Config<W> {
