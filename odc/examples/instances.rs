@@ -41,6 +41,8 @@ fn main() {
                     world: ident_transform,
                     view_proj: ident_transform,
                 };
+                renderer.write_buffer(&3, &[info], 0);
+
 
                 let instances = get_instances();
                 renderer.write_buffer(&1, &[instances], 0);
@@ -53,7 +55,7 @@ fn main() {
                 let draws = Draws {
                     static_mesh: &[draw],
                 };
-                renderer.render(&info, draws);
+                renderer.render(draws);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

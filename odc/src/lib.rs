@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
-use uniform::Uniform;
 use wgpu::{
     Backends, Buffer, BufferUsages, Color, CommandEncoder, IndexFormat, Instance, LoadOp,
     Operations, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, SurfaceError,
@@ -18,13 +17,11 @@ pub mod config;
 mod gdevice;
 mod pipeline;
 mod swapchain;
-mod uniform;
 
 pub struct Odc {
     swapchain: Option<Swapchain>,
     device: GfxDevice,
     buffers: HashMap<u64, Buffer>,
-    uniform: Uniform,
     pipeline: ColorMeshPipeline,
 }
 
@@ -56,26 +53,22 @@ impl Odc {
                     let usages = BufferUsages::COPY_DST | BufferUsages::INDEX;
                     let buffer = device.create_gpu_buffer(*size, usages);
                     buffers.insert(*id, buffer);
-                } // ResourceConfig::UniformBuffer(size) => {
-                  //     let usages = BufferUsages::COPY_DST | BufferUsages::UNIFORM;
-                  //     device.create_gpu_buffer(size, usages)
-                  // }
+                }
+                ResourceConfig::UniformBuffer(size) => {
+                    let usages = BufferUsages::COPY_DST | BufferUsages::UNIFORM;
+                    let buffer = device.create_gpu_buffer(*size, usages);
+                    buffers.insert(*id, buffer);
+                }
             };
         }
 
-        let uniform = Uniform::new(&device);
-
-        let pipeline = ColorMeshPipeline::new(
-            &device,
-            &uniform,
-            swapchain.as_ref().unwrap().format,
-        );
+        let pipeline =
+            ColorMeshPipeline::new(&device, swapchain.as_ref().unwrap().format, &buffers[&3]);
 
         Self {
             swapchain,
             device,
             buffers,
-            uniform,
             pipeline,
         }
     }
@@ -94,10 +87,8 @@ impl Odc {
             .write_buffer(buffer, byte_offset, data_bytes);
     }
 
-    pub fn render(&self, info: &RenderInfo, draws: Draws) {
+    pub fn render(&self, draws: Draws) {
         let swapchain = self.swapchain.as_ref().unwrap();
-
-        self.update_uniform(info);
 
         let frame = match swapchain.surface.get_current_texture() {
             Ok(f) => f,
@@ -118,13 +109,6 @@ impl Odc {
 
         self.device.queue.submit(Some(cmd_buf));
         frame.present();
-    }
-
-    fn update_uniform(&self, info: &RenderInfo) {
-        let render_data = bytemuck::bytes_of(info);
-        self.device
-            .queue
-            .write_buffer(&self.uniform.buffer, 0, render_data);
     }
 
     fn begin_render_pass<'a>(
@@ -153,7 +137,7 @@ impl Odc {
         pass.set_vertex_buffer(0, self.buffers[&0].slice(..));
         pass.set_vertex_buffer(1, self.buffers[&1].slice(..));
         pass.set_index_buffer(self.buffers[&2].slice(..), IndexFormat::Uint32);
-        pass.set_bind_group(0, &self.uniform.bind_group, &[]);
+        pass.set_bind_group(0, &self.pipeline.uniform_bind_group, &[]);
         for draw in draws.static_mesh {
             pass.draw_indexed(
                 draw.indices.clone(),

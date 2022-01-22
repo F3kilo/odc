@@ -1,7 +1,7 @@
 mod common;
 
 use crate::common::InstanceInfo;
-use glam::{Vec3, Mat4};
+use glam::Mat4;
 use odc::config::WindowConfig;
 use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
@@ -25,10 +25,8 @@ fn main() {
     renderer.write_buffer(&2, index_data, 0);
 
     let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
-
-    let scale = Vec3::new(0.9, 0.5, 0.5);
     let instance = InstanceInfo {
-        transform: Mat4::from_scale(scale).to_cols_array_2d(),
+        transform: ident_transform,
     };
     renderer.write_buffer(&1, &[instance], 0);
 
@@ -48,6 +46,8 @@ fn main() {
                     view_proj: ident_transform,
                 };
 
+                renderer.write_buffer(&3, &[info], 0);
+
                 let draw = StaticMesh {
                     indices: 0..3,
                     base_vertex: 0,
@@ -56,7 +56,7 @@ fn main() {
                 let draws = Draws {
                     static_mesh: &[draw],
                 };
-                renderer.render(&info, draws);
+                renderer.render(draws);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

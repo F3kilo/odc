@@ -44,8 +44,9 @@ fn main() {
                 let world = Mat4::IDENTITY.to_cols_array_2d();
                 camera.set_position(rotation.cam_position());
                 let view_proj = camera.view_proj_transform();
-
                 let info = RenderInfo { world, view_proj };
+                renderer.write_buffer(&3, &[info], 0);
+
                 let instance = InstanceInfo {
                     transform: glam::Mat4::IDENTITY.to_cols_array_2d(),
                 };
@@ -59,7 +60,7 @@ fn main() {
                 let draws = Draws {
                     static_mesh: &[draw],
                 };
-                renderer.render(&info, draws);
+                renderer.render(draws);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

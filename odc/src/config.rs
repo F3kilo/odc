@@ -20,5 +20,5 @@ pub struct DeviceConfig {
 pub enum ResourceConfig {
     VertexBuffer(u64),
     IndexBuffer(u64),
-    // UniformBuffer(u64),
+    UniformBuffer(u64),
 }

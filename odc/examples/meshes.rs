@@ -65,6 +65,7 @@ fn main() {
                     world: ident_transform,
                     view_proj: ident_transform,
                 };
+                renderer.write_buffer(&3, &[info], 0);
 
                 let draw_triangle = StaticMesh {
                     indices: 0..3,
@@ -80,7 +81,7 @@ fn main() {
                 let draws = Draws {
                     static_mesh: &[draw_triangle, draw_rectangle],
                 };
-                renderer.render(&info, draws);
+                renderer.render(draws);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

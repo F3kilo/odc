@@ -1,27 +1,31 @@
-use crate::uniform::Uniform;
 use crate::GfxDevice;
 use std::borrow::Cow;
 use std::mem;
+use std::num::NonZeroU64;
 use wgpu::{
-    BindGroupLayout, FragmentState, PipelineLayout, PipelineLayoutDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, TextureFormat,
-    VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, FragmentState, PipelineLayout,
+    PipelineLayoutDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderModule,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, TextureFormat, VertexAttribute,
+    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 
 pub struct ColorMeshPipeline {
     pub pipeline: RenderPipeline,
+    pub uniform_bind_group: BindGroup,
 }
 
 impl ColorMeshPipeline {
-    pub fn new(
-        device: &GfxDevice,
-        uniform: &Uniform,
-        format: TextureFormat,
-    ) -> Self {
-        let pipeline_layout = Self::create_layout(device, &uniform.layout);
+    pub fn new(device: &GfxDevice, format: TextureFormat, uniform_buffer: &Buffer) -> Self {
+        let uniform_layout = Self::create_uniform_bind_group_layout(device);
+        let pipeline_layout = Self::create_layout(device);
         let pipeline = Self::create_pipeline(device, &pipeline_layout, format);
-
-        Self { pipeline }
+        let uniform_bind_group =
+            Self::create_uniform_bind_group(device, uniform_buffer, &uniform_layout);
+        Self {
+            pipeline,
+            uniform_bind_group,
+        }
     }
 
     fn create_shader(device: &GfxDevice) -> ShaderModule {
@@ -34,11 +38,49 @@ impl ColorMeshPipeline {
         device.device.create_shader_module(&descriptor)
     }
 
-    fn create_layout(
+    fn create_uniform_bind_group_layout(device: &GfxDevice) -> BindGroupLayout {
+        let uniform_size = 32 * mem::size_of::<f32>();
+        let min_binding_size =
+            Some(NonZeroU64::new(uniform_size as _).expect("Zero sized uniform"));
+        let uniform_entry = BindGroupLayoutEntry {
+            binding: 0,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size,
+            },
+            count: None,
+            visibility: ShaderStages::VERTEX,
+        };
+
+        let descriptor = BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[uniform_entry],
+        };
+        device.device.create_bind_group_layout(&descriptor)
+    }
+
+    fn create_uniform_bind_group(
         device: &GfxDevice,
-        uniform_layout: &BindGroupLayout,
-    ) -> PipelineLayout {
-        let layouts = [uniform_layout];
+        buffer: &Buffer,
+        layout: &BindGroupLayout,
+    ) -> BindGroup {
+        let entries = [BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
+        }];
+
+        let descriptor = BindGroupDescriptor {
+            label: None,
+            layout,
+            entries: &entries,
+        };
+        device.device.create_bind_group(&descriptor)
+    }
+
+    fn create_layout(device: &GfxDevice) -> PipelineLayout {
+        let uniform_layout = Self::create_uniform_bind_group_layout(device);
+        let layouts = [&uniform_layout];
         let descriptor = PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &layouts,
