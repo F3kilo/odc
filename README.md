@@ -67,4 +67,5 @@ fn main() {
 ```
 
 ## Next steps
-1. Renderer from config.
+1. Deferred rendering.
+2. External materials.
