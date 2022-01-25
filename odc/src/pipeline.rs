@@ -1,14 +1,14 @@
 use crate::instances::Instances;
 use crate::uniform::Uniform;
-use crate::GfxDevice;
 use crate::GBuffer;
+use crate::GfxDevice;
 use std::borrow::Cow;
 use std::mem;
 use wgpu::{
-    BindGroupLayout, FragmentState, PipelineLayout, PipelineLayoutDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode, DepthStencilState,
-    DepthBiasState, StencilState, CompareFunction
+    BindGroupLayout, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
+    PipelineLayout, PipelineLayoutDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, StencilState, VertexAttribute,
+    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
 };
 
 pub struct ColorMeshPipeline {
@@ -16,11 +16,7 @@ pub struct ColorMeshPipeline {
 }
 
 impl ColorMeshPipeline {
-    pub fn new(
-        device: &GfxDevice,
-        instances: &Instances,
-        uniform: &Uniform,
-    ) -> Self {
+    pub fn new(device: &GfxDevice, instances: &Instances, uniform: &Uniform) -> Self {
         let pipeline_layout = Self::create_layout(device, &instances.layout, &uniform.layout);
         let pipeline = Self::create_pipeline(device, &pipeline_layout);
 
@@ -50,10 +46,7 @@ impl ColorMeshPipeline {
         device.device.create_pipeline_layout(&descriptor)
     }
 
-    fn create_pipeline(
-        device: &GfxDevice,
-        layout: &PipelineLayout,
-    ) -> RenderPipeline {
+    fn create_pipeline(device: &GfxDevice, layout: &PipelineLayout) -> RenderPipeline {
         const FLOAT_SIZE: u64 = mem::size_of::<f32>() as _;
         let attributes = [
             VertexAttribute {
@@ -82,7 +75,10 @@ impl ColorMeshPipeline {
             buffers: &[vertex_layout],
         };
 
-        let formats = [GBuffer::POSITION_FORMAT.into(), GBuffer::ALBEDO_FORMAT.into()];
+        let formats = [
+            GBuffer::POSITION_FORMAT.into(),
+            GBuffer::ALBEDO_FORMAT.into(),
+        ];
         let fragment = Some(FragmentState {
             module: &shader,
             entry_point: "fs_main",

@@ -1,27 +1,27 @@
-use std::mem;
 use bytemuck::{Pod, Zeroable};
-use gdevice::GfxDevice;
 use gbuf::GBuffer;
+use gdevice::GfxDevice;
 use instances::Instances;
 use mesh_buf::MeshBuffers;
 use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
+use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
 use uniform::Uniform;
 use wgpu::{
     Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
-    RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView,
+    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+    SurfaceError,
 };
-use gbuf::pipeline::GBufferPipeline;
 
+mod gbuf;
 mod gdevice;
 mod instances;
 mod mesh_buf;
 mod pipeline;
 mod swapchain;
 mod uniform;
-mod gbuf;
 
 pub struct Odc {
     swapchain: Swapchain,
@@ -30,8 +30,7 @@ pub struct Odc {
     instances: Instances,
     uniform: Uniform,
     gbuffer: GBuffer,
-    // pipeline: ColorMeshPipeline,
-    gbuf_pipeline: GBufferPipeline,
+    pipeline: ColorMeshPipeline,
 }
 
 impl Odc {
@@ -48,10 +47,9 @@ impl Odc {
         let instances = Instances::new(&device);
         let uniform = Uniform::new(&device);
 
-        let gbuffer = GBuffer::new(&device, size);
+        let gbuffer = GBuffer::new(&device, size, swapchain.format);
 
-        // let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform);
-        let gbuf_pipeline = GBufferPipeline::new(&device, swapchain.format);
+        let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform);
 
         Self {
             swapchain,
@@ -60,8 +58,7 @@ impl Odc {
             instances,
             uniform,
             gbuffer,
-            // pipeline,
-            gbuf_pipeline,
+            pipeline,
         }
     }
 
@@ -76,15 +73,22 @@ impl Odc {
     pub fn write_vertices<V: Pod>(&mut self, vertices: &[V], offset: u64) {
         let byte_offset = mem::size_of::<V>() as u64 * offset;
         let data = bytemuck::cast_slice(vertices);
-        self.mesh_buffers.write_vertices(&self.device, data, byte_offset);
+        self.mesh_buffers
+            .write_vertices(&self.device, data, byte_offset);
     }
 
     pub fn write_indices(&mut self, indices: &[u32], offset: u64) {
-        self.mesh_buffers.write_indices(&self.device, indices, offset);
+        self.mesh_buffers
+            .write_indices(&self.device, indices, offset);
     }
 
     pub fn render(&self, info: &RenderInfo, draws: Draws) {
         self.update_uniform(info);
+
+        let mut encoder = self
+            .device
+            .device
+            .create_command_encoder(&Default::default());
 
         let frame = match self.swapchain.surface.get_current_texture() {
             Ok(f) => f,
@@ -92,13 +96,9 @@ impl Odc {
             e => e.unwrap(),
         };
         let view = frame.texture.create_view(&Default::default());
-
-        let mut encoder = self
-            .device
-            .device
-            .create_command_encoder(&Default::default());
+        self.gbuffer.render(&mut encoder, &view);
         {
-            let mut render_pass = self.begin_render_pass(&mut encoder, &view);
+            let mut render_pass = self.begin_render_pass(&mut encoder);
             self.draw_colored_geometry(&mut render_pass, draws);
         }
         let cmd_buf = encoder.finish();
@@ -114,40 +114,57 @@ impl Odc {
             .write_buffer(&self.uniform.buffer, 0, render_data);
     }
 
-    fn begin_render_pass<'a>(
-        &self,
-        encoder: &'a mut CommandEncoder,
-        view: &'a TextureView,
-    ) -> RenderPass<'a> {
-        let attachment = RenderPassColorAttachment {
-            view,
+    fn begin_render_pass<'a>(&'a self, encoder: &'a mut CommandEncoder) -> RenderPass<'a> {
+        let views = self.gbuffer.get_views();
+        let position_attachment = RenderPassColorAttachment {
+            view: views[0],
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(Color::BLACK),
                 store: true,
             },
         };
-        let attachments = [attachment];
+
+        let albedo_attachment = RenderPassColorAttachment {
+            view: views[1],
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+
+        let attachments = [position_attachment, albedo_attachment];
+
+        let depth_attachment = RenderPassDepthStencilAttachment {
+            view: views[2],
+            depth_ops: Some(Operations {
+                load: LoadOp::Clear(1.0),
+                store: true,
+            }),
+            stencil_ops: None,
+        };
+
         let render_pass_descriptor = RenderPassDescriptor {
+            label: None,
             color_attachments: &attachments,
-            ..Default::default()
+            depth_stencil_attachment: Some(depth_attachment),
         };
         encoder.begin_render_pass(&render_pass_descriptor)
     }
 
     fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: Draws) {
-        pass.set_pipeline(&self.gbuf_pipeline.pipeline);
-        pass.draw(0..3, 0..1);
-        // self.mesh_buffers.bind(pass);
-        // pass.set_bind_group(0, &self.instances.bind_group, &[]);
-        // pass.set_bind_group(1, &self.uniform.bind_group, &[]);
-        // for draw in draws.static_mesh {
-        //     pass.draw_indexed(
-        //         draw.indices.clone(),
-        //         draw.base_vertex,
-        //         draw.instances.clone(),
-        //     );
-        // }
+        self.mesh_buffers.bind(pass);
+        pass.set_pipeline(&self.pipeline.pipeline);
+        pass.set_bind_group(0, &self.instances.bind_group, &[]);
+        pass.set_bind_group(1, &self.uniform.bind_group, &[]);
+        for draw in draws.static_mesh {
+            pass.draw_indexed(
+                draw.indices.clone(),
+                draw.base_vertex,
+                draw.instances.clone(),
+            );
+        }
     }
 
     pub fn resize(&mut self, size: WindowSize) {

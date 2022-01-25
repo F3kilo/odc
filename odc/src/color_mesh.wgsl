@@ -30,7 +30,12 @@ fn vs_main(vertex: VertexInput, [[builtin(instance_index)]] inst_index: u32) -> 
     return VertexOutput(render_info.view_proj * render_info.world * instance_transform * pos, vertex.color);
 }
 
+struct FragmentOutput {
+    [[location(0)]] position: vec2<f32>;
+    [[location(1)]] albedo: vec4<f32>;
+};
+
 [[stage(fragment)]]
-fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    return vec4<f32>(in.color);
+fn fs_main(in: VertexOutput) -> FragmentOutput {
+    return FragmentOutput(vec2<f32>(in.position.xy) ,vec4<f32>(in.color));
 }
