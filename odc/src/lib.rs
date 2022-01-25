@@ -172,7 +172,8 @@ impl Odc {
             return;
         }
 
-        self.swapchain.resize(&self.device, size)
+        self.swapchain.resize(&self.device, size);
+        self.gbuffer.resize(&self.device, size);
     }
 }
 

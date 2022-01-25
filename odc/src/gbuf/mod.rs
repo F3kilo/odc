@@ -12,6 +12,8 @@ use wgpu::{
 
 pub struct GBuffer {
     textures: Textures,
+    sampler: Sampler,
+    depth_sampler: Sampler,
     gbuf_pipeline: GBufferPipeline,
     bind_group: BindGroup,
 }
@@ -37,6 +39,8 @@ impl GBuffer {
 
         Self {
             textures,
+            sampler,
+            depth_sampler,
             gbuf_pipeline,
             bind_group,
         }
@@ -69,6 +73,17 @@ impl GBuffer {
             &self.textures.albedo_view,
             &self.textures.depth_view,
         ]
+    }
+
+    pub fn resize(&mut self, device: &GfxDevice, size: WindowSize) {
+    	self.textures = Textures::new(device, size);
+    	self.bind_group = Self::create_bind_group(
+            device,
+            &self.textures,
+            &self.sampler,
+            &self.depth_sampler,
+            &self.gbuf_pipeline.bind_group_layout,
+        );
     }
 
     fn create_sampler(device: &GfxDevice) -> Sampler {
