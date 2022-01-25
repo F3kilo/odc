@@ -5,6 +5,7 @@ use glam::Mat4;
 use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
+use fps_counter::FPSCounter;
 
 fn main() {
     env_logger::init();
@@ -24,6 +25,7 @@ fn main() {
     };
     renderer.write_instances(&[instance], 0);
 
+    let mut fps_counter = FPSCounter::new();
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -49,6 +51,8 @@ fn main() {
                     static_mesh: &[draw],
                 };
                 renderer.render(&info, draws);
+                let fps = fps_counter.tick();
+                window.set_title(&format!("FPS: {}", fps));
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
