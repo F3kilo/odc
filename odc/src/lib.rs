@@ -1,6 +1,7 @@
 use std::mem;
 use bytemuck::{Pod, Zeroable};
 use gdevice::GfxDevice;
+use gbuf::GBuffer;
 use instances::Instances;
 use mesh_buf::MeshBuffers;
 use pipeline::ColorMeshPipeline;
@@ -19,6 +20,7 @@ mod mesh_buf;
 mod pipeline;
 mod swapchain;
 mod uniform;
+mod gbuf;
 
 pub struct Odc {
     swapchain: Swapchain,
@@ -42,6 +44,8 @@ impl Odc {
 
         let instances = Instances::new(&device);
         let uniform = Uniform::new(&device);
+
+        let gbuf = GBuffer::new(&device, size);
 
         let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform, swapchain.format);
 
@@ -148,6 +152,7 @@ impl Odc {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone)]
 pub struct WindowSize(pub u32, pub u32);
 
 impl WindowSize {
