@@ -69,5 +69,5 @@ fn main() {
 ## Next steps
 1. Deferred rendering.
 2. Frame time counter.
-3. Render scale.
+3. Normals.
 4. External materials.
