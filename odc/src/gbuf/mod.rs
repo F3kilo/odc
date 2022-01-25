@@ -1,6 +1,7 @@
+pub mod pipeline;
+
 use wgpu::{TextureFormat, Extent3d, TextureDescriptor, TextureUsages, TextureDimension, Texture};
 use crate::{WindowSize};
-use std::time::Instant;
 use crate::gdevice::GfxDevice;
 
 pub struct GBuffer {

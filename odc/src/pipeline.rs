@@ -1,12 +1,14 @@
 use crate::instances::Instances;
 use crate::uniform::Uniform;
 use crate::GfxDevice;
+use crate::GBuffer;
 use std::borrow::Cow;
 use std::mem;
 use wgpu::{
     BindGroupLayout, FragmentState, PipelineLayout, PipelineLayoutDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, TextureFormat,
-    VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    RenderPipelineDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
+    VertexAttribute, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode, DepthStencilState,
+    DepthBiasState, StencilState, CompareFunction
 };
 
 pub struct ColorMeshPipeline {
@@ -18,15 +20,14 @@ impl ColorMeshPipeline {
         device: &GfxDevice,
         instances: &Instances,
         uniform: &Uniform,
-        format: TextureFormat,
     ) -> Self {
         let pipeline_layout = Self::create_layout(device, &instances.layout, &uniform.layout);
-        let pipeline = Self::create_pipeline(device, &pipeline_layout, format);
+        let pipeline = Self::create_pipeline(device, &pipeline_layout);
 
         Self { pipeline }
     }
     fn create_shader(device: &GfxDevice) -> ShaderModule {
-        let shader_src = Cow::Borrowed(include_str!("shader.wgsl"));
+        let shader_src = Cow::Borrowed(include_str!("color_mesh.wgsl"));
         let source = ShaderSource::Wgsl(shader_src);
         let descriptor = ShaderModuleDescriptor {
             label: None,
@@ -52,7 +53,6 @@ impl ColorMeshPipeline {
     fn create_pipeline(
         device: &GfxDevice,
         layout: &PipelineLayout,
-        output_format: TextureFormat,
     ) -> RenderPipeline {
         const FLOAT_SIZE: u64 = mem::size_of::<f32>() as _;
         let attributes = [
@@ -82,12 +82,20 @@ impl ColorMeshPipeline {
             buffers: &[vertex_layout],
         };
 
-        let formats = [output_format.into()];
+        let formats = [GBuffer::POSITION_FORMAT.into(), GBuffer::ALBEDO_FORMAT.into()];
         let fragment = Some(FragmentState {
             module: &shader,
             entry_point: "fs_main",
             targets: &formats,
         });
+
+        let depth_stencil_state = DepthStencilState {
+            format: GBuffer::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
+            stencil: StencilState::default(),
+            bias: DepthBiasState::default(),
+        };
 
         let descriptor = RenderPipelineDescriptor {
             label: None,
@@ -96,7 +104,7 @@ impl ColorMeshPipeline {
             fragment,
             primitive: Default::default(),
             multisample: Default::default(),
-            depth_stencil: None,
+            depth_stencil: Some(depth_stencil_state),
             multiview: None,
         };
 

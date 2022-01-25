@@ -13,6 +13,7 @@ use wgpu::{
     Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
     RenderPassColorAttachment, RenderPassDescriptor, SurfaceError, TextureView,
 };
+use gbuf::pipeline::GBufferPipeline;
 
 mod gdevice;
 mod instances;
@@ -28,7 +29,9 @@ pub struct Odc {
     mesh_buffers: MeshBuffers,
     instances: Instances,
     uniform: Uniform,
-    pipeline: ColorMeshPipeline,
+    gbuffer: GBuffer,
+    // pipeline: ColorMeshPipeline,
+    gbuf_pipeline: GBufferPipeline,
 }
 
 impl Odc {
@@ -45,9 +48,10 @@ impl Odc {
         let instances = Instances::new(&device);
         let uniform = Uniform::new(&device);
 
-        let gbuf = GBuffer::new(&device, size);
+        let gbuffer = GBuffer::new(&device, size);
 
-        let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform, swapchain.format);
+        // let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform);
+        let gbuf_pipeline = GBufferPipeline::new(&device, swapchain.format);
 
         Self {
             swapchain,
@@ -55,7 +59,9 @@ impl Odc {
             mesh_buffers,
             instances,
             uniform,
-            pipeline,
+            gbuffer,
+            // pipeline,
+            gbuf_pipeline,
         }
     }
 
@@ -130,17 +136,18 @@ impl Odc {
     }
 
     fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: Draws) {
-        pass.set_pipeline(&self.pipeline.pipeline);
-        self.mesh_buffers.bind(pass);
-        pass.set_bind_group(0, &self.instances.bind_group, &[]);
-        pass.set_bind_group(1, &self.uniform.bind_group, &[]);
-        for draw in draws.static_mesh {
-            pass.draw_indexed(
-                draw.indices.clone(),
-                draw.base_vertex,
-                draw.instances.clone(),
-            );
-        }
+        pass.set_pipeline(&self.gbuf_pipeline.pipeline);
+        pass.draw(0..3, 0..1);
+        // self.mesh_buffers.bind(pass);
+        // pass.set_bind_group(0, &self.instances.bind_group, &[]);
+        // pass.set_bind_group(1, &self.uniform.bind_group, &[]);
+        // for draw in draws.static_mesh {
+        //     pass.draw_indexed(
+        //         draw.indices.clone(),
+        //         draw.base_vertex,
+        //         draw.instances.clone(),
+        //     );
+        // }
     }
 
     pub fn resize(&mut self, size: WindowSize) {
