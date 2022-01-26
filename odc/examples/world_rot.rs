@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::{InstanceInfo, Example};
+use crate::common::{Example, InstanceInfo};
 use glam::{Mat4, Vec3};
 use odc::{Odc, RenderInfo, StaticMesh, Transform};
 use std::f32::consts::PI;
@@ -35,8 +35,8 @@ impl Example for WorldRot {
             base_vertex: 0,
             instances: 0..1,
         };
-        
-        (info, vec!(draw))
+
+        (info, vec![draw])
     }
 }
 

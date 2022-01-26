@@ -125,7 +125,7 @@ pub fn run_example(mut ex: impl Example + 'static) -> ! {
             Event::MainEventsCleared => {
                 let (info, static_mesh) = ex.draw_info();
                 let draws = Draws {
-                    static_mesh: &static_mesh[..]
+                    static_mesh: &static_mesh[..],
                 };
                 renderer.render(&info, draws);
                 let fps = fps_counter.tick();

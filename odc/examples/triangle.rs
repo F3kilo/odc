@@ -1,6 +1,6 @@
 mod common;
 
-use crate::common::{InstanceInfo, Example};
+use crate::common::{Example, InstanceInfo};
 use glam::Mat4;
 use odc::{Odc, RenderInfo, StaticMesh};
 
@@ -16,7 +16,7 @@ impl Example for Triangle {
         let instance = InstanceInfo {
             transform: ident_transform,
         };
-        renderer.write_instances(&[instance], 0);        
+        renderer.write_instances(&[instance], 0);
     }
 
     fn update(&mut self, _renderer: &Odc) {}
@@ -33,8 +33,8 @@ impl Example for Triangle {
             base_vertex: 0,
             instances: 0..1,
         };
-        
-        (info, vec!(draw))
+
+        (info, vec![draw])
     }
 }
 
