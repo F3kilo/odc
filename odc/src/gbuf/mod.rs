@@ -5,9 +5,9 @@ use crate::WindowSize;
 use pipeline::GBufferPipeline;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Color,
-    CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment,
-    RenderPassDescriptor, Sampler, Texture, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, TextureView, SamplerDescriptor,
+    CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+    Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureUsages, TextureView,
 };
 
 pub struct GBuffer {
@@ -76,8 +76,8 @@ impl GBuffer {
     }
 
     pub fn resize(&mut self, device: &GfxDevice, size: WindowSize) {
-    	self.textures = Textures::new(device, size);
-    	self.bind_group = Self::create_bind_group(
+        self.textures = Textures::new(device, size);
+        self.bind_group = Self::create_bind_group(
             device,
             &self.textures,
             &self.sampler,

@@ -1,8 +1,12 @@
 #![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
+use fps_counter::FPSCounter;
 use odc::Transform;
+use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
 use std::mem;
+use winit::event::{Event, StartCause, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
 
 #[derive(Copy, Clone)]
 pub struct InstanceInfo {
@@ -86,5 +90,54 @@ pub const RECTANGLE_VERTICES: [Vertex; 4] = [
 ];
 
 pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
+
+pub trait Example {
+    fn init(&mut self, renderer: &Odc);
+    fn update(&mut self, renderer: &Odc);
+    fn draw_info(&self) -> (RenderInfo, Vec<StaticMesh>);
+}
+
+pub fn run_example(mut ex: impl Example + 'static) -> ! {
+    env_logger::init();
+    let event_loop = EventLoop::new();
+    let window = winit::window::Window::new(&event_loop).unwrap();
+    let size = window.inner_size();
+    let size = WindowSize(size.width, size.height);
+
+    let mut renderer = Odc::new(&window, size);
+    let mut fps_counter = FPSCounter::new();
+
+    event_loop.run(move |event, _, flow| {
+        *flow = ControlFlow::Poll;
+        match event {
+            Event::NewEvents(cause) => match cause {
+                StartCause::Init => ex.init(&renderer),
+                StartCause::Poll => ex.update(&renderer),
+                _ => {}
+            },
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
+                let size = WindowSize(size.width, size.height);
+                renderer.resize(size);
+            }
+            Event::MainEventsCleared => {
+                let (info, static_mesh) = ex.draw_info();
+                let draws = Draws {
+                    static_mesh: &static_mesh[..]
+                };
+                renderer.render(&info, draws);
+                let fps = fps_counter.tick();
+                window.set_title(&format!("FPS: {}", fps));
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *flow = ControlFlow::Exit,
+            _ => {}
+        }
+    });
+}
 
 fn main() {}

@@ -67,8 +67,7 @@ fn main() {
 ```
 
 ## Next steps
-1. Deferred rendering.
-2. Frame time counter.
-3. Refactor examples winit code repetition.
-3. Normals.
-4. External materials.
+- Frame time counter.
+- Refactor examples winit code repetition.
+- Normals.
+- External materials.

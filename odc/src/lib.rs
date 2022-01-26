@@ -62,7 +62,7 @@ impl Odc {
         }
     }
 
-    pub fn write_instances<I: Pod>(&mut self, instances: &[I], offset: u64) {
+    pub fn write_instances<I: Pod>(&self, instances: &[I], offset: u64) {
         let byte_offset = mem::size_of::<I>() as u64 * offset;
         let instance_data = bytemuck::cast_slice(instances);
         self.device
@@ -70,14 +70,14 @@ impl Odc {
             .write_buffer(&self.instances.buffer, byte_offset, instance_data)
     }
 
-    pub fn write_vertices<V: Pod>(&mut self, vertices: &[V], offset: u64) {
+    pub fn write_vertices<V: Pod>(&self, vertices: &[V], offset: u64) {
         let byte_offset = mem::size_of::<V>() as u64 * offset;
         let data = bytemuck::cast_slice(vertices);
         self.mesh_buffers
             .write_vertices(&self.device, data, byte_offset);
     }
 
-    pub fn write_indices(&mut self, indices: &[u32], offset: u64) {
+    pub fn write_indices(&self, indices: &[u32], offset: u64) {
         self.mesh_buffers
             .write_indices(&self.device, indices, offset);
     }
