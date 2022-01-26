@@ -37,7 +37,8 @@ fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let color: vec4<f32> = textureSample(albedo_map, color_sampler, in.tex_coord);
     let depth = textureSampleCompare(depth_map, depth_sampler, in.tex_coord, in.position.w);
     
-    return color;
+    // return color;
+    return normals;
     // return vec4<f32>(in.tex_coord, 0.0, 1.0);
     // return vec4<f32>(pos.xy / 800.0, 0.0, 1.0);
     // return vec4<f32>(depth, 0.0, 0.0, 1.0);

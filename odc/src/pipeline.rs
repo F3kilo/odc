@@ -7,8 +7,8 @@ use std::mem;
 use wgpu::{
     BindGroupLayout, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
     PipelineLayout, PipelineLayoutDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, StencilState, VertexAttribute,
-    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, StencilState, VertexBufferLayout,
+    VertexState, VertexStepMode,
 };
 
 pub struct ColorMeshPipeline {
@@ -49,21 +49,10 @@ impl ColorMeshPipeline {
 
     fn create_pipeline(device: &GfxDevice, layout: &PipelineLayout) -> RenderPipeline {
         const FLOAT_SIZE: u64 = mem::size_of::<f32>() as _;
-        let attributes = [
-            VertexAttribute {
-                format: VertexFormat::Float32x4,
-                offset: 0,
-                shader_location: 0,
-            },
-            VertexAttribute {
-                format: VertexFormat::Float32x4,
-                offset: 4 * FLOAT_SIZE,
-                shader_location: 1,
-            },
-        ];
+        let attributes = wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4];
 
         let vertex_layout = VertexBufferLayout {
-            array_stride: 8 * FLOAT_SIZE,
+            array_stride: 12 * FLOAT_SIZE,
             attributes: &attributes,
             step_mode: VertexStepMode::Vertex,
         };

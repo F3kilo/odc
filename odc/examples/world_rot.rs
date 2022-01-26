@@ -55,7 +55,9 @@ impl Default for Rotation {
 impl Rotation {
     pub fn transform(&self) -> Transform {
         let elapsed = (Instant::now() - self.start).as_secs_f32();
-        let angle = (2.0 * PI * elapsed) % (2.0 * PI);
+        let secs_per_cycle = 4.0;
+        let angle = ((2.0 * PI * elapsed) / secs_per_cycle) % (2.0 * PI);
+        
         let rotation = Mat4::from_rotation_z(angle);
         let scale = Mat4::from_scale(Vec3::new(0.5, 0.5, 0.5));
         (rotation * scale).to_cols_array_2d()

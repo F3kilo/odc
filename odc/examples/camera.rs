@@ -70,7 +70,8 @@ impl CameraMovement {
 
     pub fn cam_position(&self) -> Vec3 {
         let elapsed = (Instant::now() - self.start).as_secs_f32();
-        let angle = (2.0 * PI * elapsed) % (2.0 * PI);
+        let secs_per_cycle = 4.0;
+        let angle = ((2.0 * PI * elapsed) / secs_per_cycle) % (2.0 * PI);
 
         let x = Self::RADIUS * angle.sin();
         let z = Self::RADIUS * -angle.cos();

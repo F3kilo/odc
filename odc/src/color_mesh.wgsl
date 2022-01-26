@@ -1,6 +1,7 @@
 struct VertexInput {
     [[location(0)]] position: vec4<f32>;
-    [[location(1)]] color: vec4<f32>;
+    [[location(1)]] normal: vec4<f32>;
+    [[location(2)]] color: vec4<f32>;
 };
 
 struct RenderInfo {
@@ -20,26 +21,34 @@ var<uniform> render_info: RenderInfo;
 
 struct VertexOutput {
     [[builtin(position)]] position: vec4<f32>;
-    [[location(0)]] color: vec4<f32>;
+    [[location(0)]] world_position: vec4<f32>;
+    [[location(1)]] normal: vec4<f32>;
+    [[location(2)]] color: vec4<f32>;
 };
 
 [[stage(vertex)]]
 fn vs_main(vertex: VertexInput, [[builtin(instance_index)]] inst_index: u32) -> VertexOutput {
-    let pos = vec4<f32>(vertex.position.xyz, 1.0);
+    let position = vec4<f32>(vertex.position.xyz, 1.0);
+    let normal = vec4<f32>(vertex.normal.xyz, 1.0);
+    
     let instance_transform = instance_info.transform[inst_index];
-    return VertexOutput(render_info.view_proj * render_info.world * instance_transform * pos, vertex.color);
+    let world_transform = render_info.world * instance_transform;
+    let world_position = world_transform * position;
+    let screen_position = render_info.view_proj * world_position;
+
+    let world_normal = normalize(world_transform * vec4<f32>(normal.xyz, 0.0));
+    
+    return VertexOutput(screen_position, world_position, world_normal, vertex.color);
 }
 
 struct FragmentOutput {
     [[location(0)]] position: vec2<f32>;
-    [[location(1)]] position: vec4<f32>;
+    [[location(1)]] normal: vec4<f32>;
     [[location(2)]] albedo: vec4<f32>;
 };
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> FragmentOutput {
-    let position = vec2<f32>(in.position.xy);
-    let normals = vec4<f32>(1.0, 0.0, 0.0, 1.0); // todo: get data from input
-    let color = vec4<f32>(in.color);
-    return FragmentOutput(position, normals, color);
+    let position = vec2<f32>(in.world_position.xy);
+    return FragmentOutput(position, in.normal, in.color);
 }
