@@ -143,9 +143,6 @@ impl GBuffer {
 }
 
 struct Textures {
-    pub position: Texture,
-    pub albedo: Texture,
-    pub depth: Texture,
     pub position_view: TextureView,
     pub albedo_view: TextureView,
     pub depth_view: TextureView,
@@ -162,9 +159,6 @@ impl Textures {
         let depth_view = depth.create_view(&Default::default());
 
         Self {
-            position,
-            albedo,
-            depth,
             position_view,
             albedo_view,
             depth_view,
