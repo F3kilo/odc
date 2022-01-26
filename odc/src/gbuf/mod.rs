@@ -19,7 +19,7 @@ pub struct GBuffer {
 }
 
 impl GBuffer {
-    pub const POSITION_FORMAT: TextureFormat = TextureFormat::Rg32Float;
+    pub const POSITION_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
     pub const NORMAL_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
     pub const ALBEDO_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
     pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;

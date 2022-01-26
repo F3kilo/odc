@@ -42,13 +42,12 @@ fn vs_main(vertex: VertexInput, [[builtin(instance_index)]] inst_index: u32) -> 
 }
 
 struct FragmentOutput {
-    [[location(0)]] position: vec2<f32>;
+    [[location(0)]] position: vec4<f32>;
     [[location(1)]] normal: vec4<f32>;
     [[location(2)]] albedo: vec4<f32>;
 };
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> FragmentOutput {
-    let position = vec2<f32>(in.world_position.xy);
-    return FragmentOutput(position, in.normal, in.color);
+    return FragmentOutput(in.world_position, in.normal, in.color);
 }
