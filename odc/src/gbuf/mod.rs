@@ -68,9 +68,10 @@ impl GBuffer {
         pass.draw(0..3, 0..1);
     }
 
-    pub fn get_views(&self) -> [&TextureView; 3] {
+    pub fn get_views(&self) -> [&TextureView; 4] {
         [
             &self.textures.position_view,
+            &self.textures.normals_view,
             &self.textures.albedo_view,
             &self.textures.depth_view,
         ]

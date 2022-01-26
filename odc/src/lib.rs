@@ -90,6 +90,11 @@ impl Odc {
             .device
             .create_command_encoder(&Default::default());
 
+        {
+            let mut render_pass = self.begin_render_pass(&mut encoder);
+            self.draw_colored_geometry(&mut render_pass, draws);
+        }
+
         let frame = match self.swapchain.surface.get_current_texture() {
             Ok(f) => f,
             Err(SurfaceError::Outdated) => return,
@@ -97,10 +102,6 @@ impl Odc {
         };
         let view = frame.texture.create_view(&Default::default());
         self.gbuffer.render(&mut encoder, &view);
-        {
-            let mut render_pass = self.begin_render_pass(&mut encoder);
-            self.draw_colored_geometry(&mut render_pass, draws);
-        }
         let cmd_buf = encoder.finish();
 
         self.device.queue.submit(Some(cmd_buf));
@@ -125,7 +126,7 @@ impl Odc {
             },
         };
 
-        let albedo_attachment = RenderPassColorAttachment {
+        let normals_attachment = RenderPassColorAttachment {
             view: views[1],
             resolve_target: None,
             ops: Operations {
@@ -134,10 +135,19 @@ impl Odc {
             },
         };
 
-        let attachments = [position_attachment, albedo_attachment];
+        let albedo_attachment = RenderPassColorAttachment {
+            view: views[2],
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+
+        let attachments = [position_attachment, normals_attachment, albedo_attachment];
 
         let depth_attachment = RenderPassDepthStencilAttachment {
-            view: views[2],
+            view: views[3],
             depth_ops: Some(Operations {
                 load: LoadOp::Clear(1.0),
                 store: true,

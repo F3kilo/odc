@@ -32,10 +32,14 @@ fn vs_main(vertex: VertexInput, [[builtin(instance_index)]] inst_index: u32) -> 
 
 struct FragmentOutput {
     [[location(0)]] position: vec2<f32>;
-    [[location(1)]] albedo: vec4<f32>;
+    [[location(1)]] position: vec4<f32>;
+    [[location(2)]] albedo: vec4<f32>;
 };
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> FragmentOutput {
-    return FragmentOutput(vec2<f32>(in.position.xy) ,vec4<f32>(in.color));
+    let position = vec2<f32>(in.position.xy);
+    let normals = vec4<f32>(1.0, 0.0, 0.0, 1.0); // todo: get data from input
+    let color = vec4<f32>(in.color);
+    return FragmentOutput(position, normals, color);
 }

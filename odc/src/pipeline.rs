@@ -22,6 +22,7 @@ impl ColorMeshPipeline {
 
         Self { pipeline }
     }
+
     fn create_shader(device: &GfxDevice) -> ShaderModule {
         let shader_src = Cow::Borrowed(include_str!("color_mesh.wgsl"));
         let source = ShaderSource::Wgsl(shader_src);
@@ -77,6 +78,7 @@ impl ColorMeshPipeline {
 
         let formats = [
             GBuffer::POSITION_FORMAT.into(),
+            GBuffer::NORMAL_FORMAT.into(),
             GBuffer::ALBEDO_FORMAT.into(),
         ];
         let fragment = Some(FragmentState {
