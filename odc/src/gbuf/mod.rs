@@ -5,8 +5,8 @@ use crate::WindowSize;
 use pipeline::GBufferPipeline;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Color,
-    CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension, TextureFormat,
+    CommandEncoder, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+    Sampler, SamplerDescriptor, TextureFormat,
     TextureUsages, TextureView,
 };
 
@@ -158,10 +158,11 @@ struct Textures {
 
 impl Textures {
     pub fn new(device: &GfxDevice, size: WindowSize) -> Self {
-        let position = Self::create_position_texture(device, size);
-        let normals = Self::create_normals_texture(device, size);
-        let albedo = Self::create_albedo_texture(device, size);
-        let depth = Self::create_depth_texture(device, size);
+        let usage = TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
+        let position = device.create_2d_texture(size, GBuffer::POSITION_FORMAT, usage);
+        let normals = device.create_2d_texture(size, GBuffer::NORMAL_FORMAT, usage);
+        let albedo = device.create_2d_texture(size, GBuffer::ALBEDO_FORMAT, usage);
+        let depth = device.create_2d_texture(size, GBuffer::DEPTH_FORMAT, usage);
 
         let position_view = position.create_view(&Default::default());
         let normals_view = normals.create_view(&Default::default());
@@ -174,85 +175,5 @@ impl Textures {
             albedo_view,
             depth_view,
         }
-    }
-
-    fn create_position_texture(device: &GfxDevice, size: WindowSize) -> Texture {
-        let size = Extent3d {
-            width: size.0,
-            height: size.1,
-            depth_or_array_layers: 1,
-        };
-
-        let descriptor = TextureDescriptor {
-            label: None,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: GBuffer::POSITION_FORMAT,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-        };
-
-        device.device.create_texture(&descriptor)
-    }
-
-    fn create_normals_texture(device: &GfxDevice, size: WindowSize) -> Texture {
-        let size = Extent3d {
-            width: size.0,
-            height: size.1,
-            depth_or_array_layers: 1,
-        };
-
-        let descriptor = TextureDescriptor {
-            label: None,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: GBuffer::NORMAL_FORMAT,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-        };
-
-        device.device.create_texture(&descriptor)
-    }
-
-    fn create_albedo_texture(device: &GfxDevice, size: WindowSize) -> Texture {
-        let size = Extent3d {
-            width: size.0,
-            height: size.1,
-            depth_or_array_layers: 1,
-        };
-
-        let descriptor = TextureDescriptor {
-            label: None,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: GBuffer::ALBEDO_FORMAT,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-        };
-
-        device.device.create_texture(&descriptor)
-    }
-
-    fn create_depth_texture(device: &GfxDevice, size: WindowSize) -> Texture {
-        let size = Extent3d {
-            width: size.0,
-            height: size.1,
-            depth_or_array_layers: 1,
-        };
-
-        let descriptor = TextureDescriptor {
-            label: None,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: GBuffer::DEPTH_FORMAT,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-        };
-
-        device.device.create_texture(&descriptor)
     }
 }
