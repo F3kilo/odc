@@ -19,7 +19,8 @@ pub struct GBuffer {
 }
 
 impl GBuffer {
-    pub const POSITION_FORMAT: TextureFormat = TextureFormat::Rg32Float;
+    pub const POSITION_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
+    pub const NORMAL_FORMAT: TextureFormat = TextureFormat::Rgba32Float;
     pub const ALBEDO_FORMAT: TextureFormat = TextureFormat::Rgba8Unorm;
     pub const DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
@@ -67,9 +68,10 @@ impl GBuffer {
         pass.draw(0..3, 0..1);
     }
 
-    pub fn get_views(&self) -> [&TextureView; 3] {
+    pub fn get_views(&self) -> [&TextureView; 4] {
         [
             &self.textures.position_view,
+            &self.textures.normals_view,
             &self.textures.albedo_view,
             &self.textures.depth_view,
         ]
@@ -105,6 +107,7 @@ impl GBuffer {
         layout: &BindGroupLayout,
     ) -> BindGroup {
         let position_binding = BindingResource::TextureView(&textures.position_view);
+        let normals_binding = BindingResource::TextureView(&textures.normals_view);
         let albedo_binding = BindingResource::TextureView(&textures.albedo_view);
         let depth_binding = BindingResource::TextureView(&textures.depth_view);
         let sampler_binding = BindingResource::Sampler(sampler);
@@ -117,18 +120,22 @@ impl GBuffer {
             },
             BindGroupEntry {
                 binding: 1,
-                resource: albedo_binding,
+                resource: normals_binding,
             },
             BindGroupEntry {
                 binding: 2,
-                resource: depth_binding,
+                resource: albedo_binding,
             },
             BindGroupEntry {
                 binding: 3,
-                resource: sampler_binding,
+                resource: depth_binding,
             },
             BindGroupEntry {
                 binding: 4,
+                resource: sampler_binding,
+            },
+            BindGroupEntry {
+                binding: 5,
                 resource: depth_sampler_binding,
             },
         ];
@@ -144,6 +151,7 @@ impl GBuffer {
 
 struct Textures {
     pub position_view: TextureView,
+    pub normals_view: TextureView,
     pub albedo_view: TextureView,
     pub depth_view: TextureView,
 }
@@ -151,15 +159,18 @@ struct Textures {
 impl Textures {
     pub fn new(device: &GfxDevice, size: WindowSize) -> Self {
         let position = Self::create_position_texture(device, size);
+        let normals = Self::create_normals_texture(device, size);
         let albedo = Self::create_albedo_texture(device, size);
         let depth = Self::create_depth_texture(device, size);
 
         let position_view = position.create_view(&Default::default());
+        let normals_view = normals.create_view(&Default::default());
         let albedo_view = albedo.create_view(&Default::default());
         let depth_view = depth.create_view(&Default::default());
 
         Self {
             position_view,
+            normals_view,
             albedo_view,
             depth_view,
         }
@@ -179,6 +190,26 @@ impl Textures {
             sample_count: 1,
             dimension: TextureDimension::D2,
             format: GBuffer::POSITION_FORMAT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+        };
+
+        device.device.create_texture(&descriptor)
+    }
+
+    fn create_normals_texture(device: &GfxDevice, size: WindowSize) -> Texture {
+        let size = Extent3d {
+            width: size.0,
+            height: size.1,
+            depth_or_array_layers: 1,
+        };
+
+        let descriptor = TextureDescriptor {
+            label: None,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: GBuffer::NORMAL_FORMAT,
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
         };
 

@@ -92,8 +92,19 @@ impl GBufferPipeline {
             visibility: ShaderStages::FRAGMENT,
         };
 
-        let albedo_entry = BindGroupLayoutEntry {
+        let normals_entry = BindGroupLayoutEntry {
             binding: 1,
+            ty: BindingType::Texture {
+                sample_type: TextureSampleType::Float { filterable: false },
+                view_dimension: TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+            visibility: ShaderStages::FRAGMENT,
+        };
+
+        let albedo_entry = BindGroupLayoutEntry {
+            binding: 2,
             ty: BindingType::Texture {
                 sample_type: TextureSampleType::Float { filterable: true },
                 view_dimension: TextureViewDimension::D2,
@@ -104,7 +115,7 @@ impl GBufferPipeline {
         };
 
         let depth_entry = BindGroupLayoutEntry {
-            binding: 2,
+            binding: 3,
             ty: BindingType::Texture {
                 sample_type: TextureSampleType::Depth,
                 view_dimension: TextureViewDimension::D2,
@@ -115,14 +126,14 @@ impl GBufferPipeline {
         };
 
         let sampler_entry = BindGroupLayoutEntry {
-            binding: 3,
+            binding: 4,
             ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
             count: None,
             visibility: ShaderStages::FRAGMENT,
         };
 
         let depth_sampler_entry = BindGroupLayoutEntry {
-            binding: 4,
+            binding: 5,
             ty: BindingType::Sampler(SamplerBindingType::Comparison),
             count: None,
             visibility: ShaderStages::FRAGMENT,
@@ -132,6 +143,7 @@ impl GBufferPipeline {
             label: None,
             entries: &[
                 position_entry,
+                normals_entry,
                 albedo_entry,
                 depth_entry,
                 sampler_entry,

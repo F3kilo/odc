@@ -25,6 +25,7 @@ unsafe impl Pod for InstanceInfo {}
 #[derive(Copy, Clone)]
 pub struct Vertex {
     pub position: [f32; 4],
+    pub normal: [f32; 4],
     pub color: [f32; 4],
 }
 
@@ -52,14 +53,17 @@ pub fn triangle_mesh() -> (&'static [Vertex], &'static [u32]) {
 pub const TRIANGLE_VERTICES: [Vertex; 3] = [
     Vertex {
         position: [-1.0, -1.0, 0.0, 1.0],
+        normal: [-1.0, -1.0, 0.0, 1.0],
         color: [1.0, 0.0, 0.0, 1.0],
     },
     Vertex {
         position: [0.0, 1.0, 0.0, 1.0],
+        normal: [0.0, 1.0, 0.0, 1.0],
         color: [0.0, 1.0, 0.0, 1.0],
     },
     Vertex {
         position: [1.0, -1.0, 0.0, 1.0],
+        normal: [1.0, -1.0, 0.0, 1.0],
         color: [0.0, 0.0, 1.0, 1.0],
     },
 ];
@@ -73,18 +77,22 @@ pub fn rectangle_mesh() -> (&'static [Vertex], &'static [u32]) {
 pub const RECTANGLE_VERTICES: [Vertex; 4] = [
     Vertex {
         position: [-1.0, -1.0, 0.0, 1.0],
+        normal: [-1.0, -1.0, 0.0, 1.0],
         color: [0.0, 1.0, 0.0, 1.0],
     },
     Vertex {
         position: [-1.0, 1.0, 0.0, 1.0],
+        normal: [-1.0, 1.0, 0.0, 1.0],
         color: [1.0, 0.0, 0.0, 1.0],
     },
     Vertex {
         position: [1.0, 1.0, 0.0, 1.0],
+        normal: [1.0, 1.0, 0.0, 1.0],
         color: [0.0, 0.0, 1.0, 1.0],
     },
     Vertex {
         position: [1.0, -1.0, 0.0, 1.0],
+        normal: [1.0, -1.0, 0.0, 1.0],
         color: [0.0, 1.0, 1.0, 1.0],
     },
 ];

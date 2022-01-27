@@ -13,28 +13,33 @@ fn vs_main([[builtin(vertex_index)]] vertex_id: u32) -> VertexOutput {
 }
 
 [[group(0), binding(0)]]
-var position: texture_2d<f32>;
+var position_map: texture_2d<f32>;
 
 [[group(0), binding(1)]]
-var albedo: texture_2d<f32>;
+var normals_map: texture_2d<f32>;
 
 [[group(0), binding(2)]]
-var depth: texture_depth_2d;
+var albedo_map: texture_2d<f32>;
 
 [[group(0), binding(3)]]
-var color_sampler: sampler;
+var depth_map: texture_depth_2d;
 
 [[group(0), binding(4)]]
+var color_sampler: sampler;
+
+[[group(0), binding(5)]]
 var depth_sampler: sampler_comparison;
 
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    let pos: vec4<f32> = textureSample(position, color_sampler, in.tex_coord);
-    let color: vec4<f32> = textureSample(albedo, color_sampler, in.tex_coord);
-    let depth = textureSampleCompare(depth, depth_sampler, in.tex_coord, in.position.w);
-    
+    let pos: vec4<f32> = textureSample(position_map, color_sampler, in.tex_coord);
+    let normals: vec4<f32> = textureSample(normals_map, color_sampler, in.tex_coord);
+    let color: vec4<f32> = textureSample(albedo_map, color_sampler, in.tex_coord);
+    let depth = textureSampleCompare(depth_map, depth_sampler, in.tex_coord, in.position.w);
+
     return color;
+    // return normals;
     // return vec4<f32>(in.tex_coord, 0.0, 1.0);
-    // return vec4<f32>(pos.xy / 800.0, 0.0, 1.0);
+    // return vec4<f32>(pos.xyz, 1.0);
     // return vec4<f32>(depth, 0.0, 0.0, 1.0);
 }

@@ -51,4 +51,5 @@ fn main() {
 
 ## Next steps
 - Normals and lights.
+- Refactor texture creation.
 - External materials.
