@@ -1,8 +1,8 @@
 mod common;
 
-use crate::common::{Example, InstanceInfo};
+use crate::common::Example;
 use glam::Mat4;
-use odc::{Odc, RenderInfo, StaticMesh};
+use odc::{DrawData, Odc};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -10,35 +10,33 @@ use vp_cam::{Camera, CameraBuilder, Vec3};
 struct CameraExample(Camera, CameraMovement);
 
 impl Example for CameraExample {
-    fn init(&mut self, renderer: &Odc) {
+    fn init(&mut self, renderer: &mut Odc) {
+        let material = renderer.create_material(&common::color_mesh_material_data().as_info());
+        renderer.insert_material(0, material);
+
         let (vertex_data, index_data) = common::triangle_mesh();
         renderer.write_vertices(vertex_data, 0);
         renderer.write_indices(index_data, 0);
 
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
-        let instance = InstanceInfo {
-            transform: ident_transform,
-        };
-        renderer.write_instances(&[instance], 0);
+        renderer.write_instances(&[ident_transform], 0);
     }
 
-    fn update(&mut self, _renderer: &Odc) {
+    fn update(&mut self, renderer: &Odc) {
         self.0.set_position(self.1.cam_position());
+        let world = Mat4::IDENTITY.to_cols_array_2d();
+        let view_proj = self.0.view_proj_transform();
+        renderer.write_uniform(&[world, view_proj], 0);
     }
 
-    fn draw_info(&self) -> (RenderInfo, Vec<StaticMesh>) {
-        let world = Mat4::IDENTITY.to_cols_array_2d();
-
-        let view_proj = self.0.view_proj_transform();
-        let info = RenderInfo { world, view_proj };
-
-        let draw = StaticMesh {
+    fn draw_info(&self) -> Vec<(u64, Vec<DrawData>)> {
+        let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..1,
         };
 
-        (info, vec![draw])
+        vec![(0, vec![draw])]
     }
 }
 

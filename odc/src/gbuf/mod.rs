@@ -71,7 +71,7 @@ impl GBuffer {
     pub fn get_color_attachments(&self) -> [RenderPassColorAttachment; 3] {
         let views = self.textures.get_views();
         let position_attachment = RenderPassColorAttachment {
-            view: &views[0],
+            view: views[0],
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(Color::BLACK),
@@ -80,7 +80,7 @@ impl GBuffer {
         };
 
         let normals_attachment = RenderPassColorAttachment {
-            view: &views[1],
+            view: views[1],
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(Color::BLACK),
@@ -89,7 +89,7 @@ impl GBuffer {
         };
 
         let albedo_attachment = RenderPassColorAttachment {
-            view: &views[2],
+            view: views[2],
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(Color::BLACK),
@@ -103,16 +103,14 @@ impl GBuffer {
     pub fn get_depth_attachment(&self) -> RenderPassDepthStencilAttachment {
         let views = self.textures.get_views();
 
-        let depth_attachment = RenderPassDepthStencilAttachment {
-            view: &views[3],
+        RenderPassDepthStencilAttachment {
+            view: views[3],
             depth_ops: Some(Operations {
                 load: LoadOp::Clear(1.0),
                 store: true,
             }),
             stencil_ops: None,
-        };
-
-        depth_attachment
+        }
     }
 
     pub fn resize(&mut self, device: &GfxDevice, size: WindowSize) {
