@@ -9,11 +9,7 @@ use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
 use uniform::Uniform;
-use wgpu::{
-    Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    SurfaceError,
-};
+use wgpu::{Backends, CommandEncoder, Instance, RenderPass, RenderPassDescriptor, SurfaceError};
 
 mod gbuf;
 mod gdevice;
@@ -116,48 +112,12 @@ impl Odc {
     }
 
     fn begin_render_pass<'a>(&'a self, encoder: &'a mut CommandEncoder) -> RenderPass<'a> {
-        let views = self.gbuffer.get_views();
-        let position_attachment = RenderPassColorAttachment {
-            view: views[0],
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::BLACK),
-                store: true,
-            },
-        };
-
-        let normals_attachment = RenderPassColorAttachment {
-            view: views[1],
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::BLACK),
-                store: true,
-            },
-        };
-
-        let albedo_attachment = RenderPassColorAttachment {
-            view: views[2],
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::BLACK),
-                store: true,
-            },
-        };
-
-        let attachments = [position_attachment, normals_attachment, albedo_attachment];
-
-        let depth_attachment = RenderPassDepthStencilAttachment {
-            view: views[3],
-            depth_ops: Some(Operations {
-                load: LoadOp::Clear(1.0),
-                store: true,
-            }),
-            stencil_ops: None,
-        };
+        let color_attachments = self.gbuffer.get_color_attachments();
+        let depth_attachment = self.gbuffer.get_depth_attachment();
 
         let render_pass_descriptor = RenderPassDescriptor {
             label: None,
-            color_attachments: &attachments,
+            color_attachments: &color_attachments,
             depth_stencil_attachment: Some(depth_attachment),
         };
         encoder.begin_render_pass(&render_pass_descriptor)
