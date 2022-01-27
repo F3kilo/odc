@@ -174,7 +174,33 @@ pub fn color_mesh_material_data() -> MaterialData {
         wgpu::vertex_attr_array![3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4]
             .to_vec();
 
-    let shader_source = include_str!("color_mesh.wgsl").to_string();
+    let shader_source = include_str!("shaders/color_mesh.wgsl").to_string();
+    let vs_entry = "vs_main".to_string();
+    let fs_entry = "fs_main".to_string();
+    
+    let mat4_size = 16 * 4;
+    let uniform_location = 0..(mat4_size * 2);
+
+    MaterialData {
+        vertex_attributes,
+        vertex_stride: 12 * 4,
+        instance_attributes,
+        instance_stride: mat4_size,
+        shader_source,
+        vs_entry,
+        fs_entry,
+        uniform_location
+    }
+}
+
+pub fn blue_mesh_material_data() -> MaterialData {
+    let vertex_attributes =
+        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4].to_vec();
+    let instance_attributes =
+        wgpu::vertex_attr_array![3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4]
+            .to_vec();
+
+    let shader_source = include_str!("shaders/blue_mesh.wgsl").to_string();
     let vs_entry = "vs_main".to_string();
     let fs_entry = "fs_main".to_string();
     
