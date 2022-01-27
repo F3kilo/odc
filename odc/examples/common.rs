@@ -2,25 +2,13 @@
 
 use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
-use odc::Transform;
-use odc::{Draws, Odc, RenderInfo, StaticMesh, WindowSize};
+use odc::material::{InputAttribute, InputInfo, MaterialInfo, ShaderInfo};
+use odc::{DrawData, Odc, WindowSize};
+use std::collections::HashMap;
 use std::mem;
+use std::ops::Range;
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-
-#[derive(Copy, Clone)]
-pub struct InstanceInfo {
-    pub transform: Transform,
-}
-
-impl InstanceInfo {
-    pub const fn size() -> usize {
-        mem::size_of::<Self>()
-    }
-}
-
-unsafe impl Zeroable for InstanceInfo {}
-unsafe impl Pod for InstanceInfo {}
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -100,9 +88,9 @@ pub const RECTANGLE_VERTICES: [Vertex; 4] = [
 pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 pub trait Example {
-    fn init(&mut self, renderer: &Odc);
+    fn init(&mut self, renderer: &mut Odc);
     fn update(&mut self, renderer: &Odc);
-    fn draw_info(&self) -> (RenderInfo, Vec<StaticMesh>);
+    fn draw_info(&self) -> Vec<(u64, Vec<DrawData>)>;
 }
 
 pub fn run_example(mut ex: impl Example + 'static) -> ! {
@@ -119,7 +107,7 @@ pub fn run_example(mut ex: impl Example + 'static) -> ! {
         *flow = ControlFlow::Poll;
         match event {
             Event::NewEvents(cause) => match cause {
-                StartCause::Init => ex.init(&renderer),
+                StartCause::Init => ex.init(&mut renderer),
                 StartCause::Poll => ex.update(&renderer),
                 _ => {}
             },
@@ -131,11 +119,10 @@ pub fn run_example(mut ex: impl Example + 'static) -> ! {
                 renderer.resize(size);
             }
             Event::MainEventsCleared => {
-                let (info, static_mesh) = ex.draw_info();
-                let draws = Draws {
-                    static_mesh: &static_mesh[..],
-                };
-                renderer.render(&info, draws);
+                let to_draw = ex.draw_info();
+                let draw_map =
+                    HashMap::from_iter(to_draw.iter().map(|(id, d)| (*id, d.as_slice())));
+                renderer.render(&draw_map);
                 let fps = fps_counter.tick();
                 window.set_title(&format!("FPS: {}", fps));
             }
@@ -146,6 +133,90 @@ pub fn run_example(mut ex: impl Example + 'static) -> ! {
             _ => {}
         }
     });
+}
+
+pub struct MaterialData {
+    pub vertex_attributes: Vec<InputAttribute>,
+    pub vertex_stride: u64,
+    pub instance_attributes: Vec<InputAttribute>,
+    pub instance_stride: u64,
+    pub shader_source: String,
+    pub vs_entry: String,
+    pub fs_entry: String,
+    pub uniform_location: Range<u64>,
+}
+
+impl MaterialData {
+    pub fn as_info(&self) -> MaterialInfo {
+        MaterialInfo {
+            vertex: InputInfo {
+                attributes: &self.vertex_attributes,
+                stride: self.vertex_stride,
+            },
+            instance: InputInfo {
+                attributes: &self.instance_attributes,
+                stride: self.instance_stride,
+            },
+            shader: ShaderInfo {
+                source: &self.shader_source,
+                vs_entry: &self.vs_entry,
+                fs_entry: &self.fs_entry,
+            },
+            uniform_location: self.uniform_location.clone(),
+        }
+    }
+}
+
+pub fn color_mesh_material_data() -> MaterialData {
+    let vertex_attributes =
+        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4].to_vec();
+    let instance_attributes =
+        wgpu::vertex_attr_array![3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4]
+            .to_vec();
+
+    let shader_source = include_str!("shaders/color_mesh.wgsl").to_string();
+    let vs_entry = "vs_main".to_string();
+    let fs_entry = "fs_main".to_string();
+    
+    let mat4_size = 16 * 4;
+    let uniform_location = 0..(mat4_size * 2);
+
+    MaterialData {
+        vertex_attributes,
+        vertex_stride: 12 * 4,
+        instance_attributes,
+        instance_stride: mat4_size,
+        shader_source,
+        vs_entry,
+        fs_entry,
+        uniform_location
+    }
+}
+
+pub fn blue_mesh_material_data() -> MaterialData {
+    let vertex_attributes =
+        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4].to_vec();
+    let instance_attributes =
+        wgpu::vertex_attr_array![3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4]
+            .to_vec();
+
+    let shader_source = include_str!("shaders/blue_mesh.wgsl").to_string();
+    let vs_entry = "vs_main".to_string();
+    let fs_entry = "fs_main".to_string();
+    
+    let mat4_size = 16 * 4;
+    let uniform_location = 0..(mat4_size * 2);
+
+    MaterialData {
+        vertex_attributes,
+        vertex_stride: 12 * 4,
+        instance_attributes,
+        instance_stride: mat4_size,
+        shader_source,
+        vs_entry,
+        fs_entry,
+        uniform_location
+    }
 }
 
 fn main() {}

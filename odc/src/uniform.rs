@@ -1,34 +1,34 @@
-use crate::{GfxDevice, RenderInfo};
-use std::mem;
+use crate::GfxDevice;
 use std::num::NonZeroU64;
+use std::ops::Range;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferSize, BufferUsages,
-    ShaderStages,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType,
+    BufferUsages, ShaderStages,
 };
 
 pub struct Uniform {
     pub buffer: Buffer,
     pub layout: BindGroupLayout,
-    pub bind_group: BindGroup,
 }
 
 impl Uniform {
+    pub const BUFFER_SIZE: u64 = 2u64.pow(16);
+
     pub fn new(device: &GfxDevice) -> Self {
         let usage = BufferUsages::COPY_DST | BufferUsages::UNIFORM;
-        let buffer = device.create_gpu_buffer(Self::buffer_size().get(), usage);
+        let buffer = device.create_gpu_buffer(Self::BUFFER_SIZE, usage);
         let layout = Self::create_bind_group_layout(device);
-        let bind_group = Self::create_bind_group(device, &buffer, &layout);
 
-        Self {
-            buffer,
-            layout,
-            bind_group,
-        }
+        Self { buffer, layout }
     }
 
-    fn buffer_size() -> BufferSize {
-        NonZeroU64::new(mem::size_of::<RenderInfo>() as _).expect("Zero sized uniform")
+    pub fn get_bind_group_layout(&self) -> &BindGroupLayout {
+        &self.layout
+    }
+
+    pub fn write(&self, device: &GfxDevice, data: &[u8], offset: u64) {
+        device.queue.write_buffer(&self.buffer, offset, data)
     }
 
     fn create_bind_group_layout(device: &GfxDevice) -> BindGroupLayout {
@@ -37,7 +37,7 @@ impl Uniform {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: Some(Self::buffer_size()),
+                min_binding_size: None,
             },
             count: None,
             visibility: ShaderStages::VERTEX,
@@ -50,19 +50,23 @@ impl Uniform {
         device.device.create_bind_group_layout(&descriptor)
     }
 
-    fn create_bind_group(
-        device: &GfxDevice,
-        buffer: &Buffer,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
+    pub fn create_bind_group(&self, device: &GfxDevice, range: &Range<u64>) -> BindGroup {
+        let size =
+            NonZeroU64::new(range.end - range.start).expect("unexpected zero uniform binding size");
+        let binding = BufferBinding {
+            buffer: &self.buffer,
+            offset: range.start,
+            size: Some(size),
+        };
+
         let entries = [BindGroupEntry {
             binding: 0,
-            resource: buffer.as_entire_binding(),
+            resource: BindingResource::Buffer(binding),
         }];
 
         let descriptor = BindGroupDescriptor {
             label: None,
-            layout,
+            layout: &self.layout,
             entries: &entries,
         };
         device.device.create_bind_group(&descriptor)

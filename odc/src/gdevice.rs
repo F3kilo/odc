@@ -1,12 +1,9 @@
+use std::borrow::Cow;
 use crate::WindowSize;
-use wgpu::Extent3d;
-use wgpu::Texture;
-use wgpu::TextureDescriptor;
-use wgpu::TextureFormat;
-use wgpu::TextureUsages;
 use wgpu::{
     Adapter, Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device, DeviceDescriptor,
-    Instance, Limits, Queue, RequestAdapterOptions, Surface, TextureDimension,
+    Extent3d, Instance, Limits, Queue, RequestAdapterOptions, Surface, Texture,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, ShaderModuleDescriptor, ShaderSource, ShaderModule
 };
 
 pub struct GfxDevice {
@@ -78,5 +75,15 @@ impl GfxDevice {
         };
 
         self.device.create_texture(&descriptor)
+    }
+
+    pub fn create_shader(&self, src: &str) -> ShaderModule {
+        let shader_src = Cow::Borrowed(src);
+        let source = ShaderSource::Wgsl(shader_src);
+        let descriptor = ShaderModuleDescriptor {
+            label: None,
+            source,
+        };
+        self.device.create_shader_module(&descriptor)
     }
 }

@@ -1,8 +1,8 @@
 mod common;
 
-use crate::common::{Example};
+use crate::common::Example;
 use glam::{Mat4, Quat, Vec3};
-use odc::{Odc, DrawData};
+use odc::{DrawData, Odc};
 
 struct InstancesExample;
 
@@ -10,6 +10,8 @@ impl Example for InstancesExample {
     fn init(&mut self, renderer: &mut Odc) {
         let material = renderer.create_material(&common::color_mesh_material_data().as_info());
         renderer.insert_material(0, material);
+        let material = renderer.create_material(&common::blue_mesh_material_data().as_info());
+        renderer.insert_material(1, material);
 
         let (vertex_data, index_data) = common::triangle_mesh();
         renderer.write_vertices(vertex_data, 0);
@@ -51,7 +53,7 @@ impl Example for InstancesExample {
             instances: 1..2,
         };
 
-        vec![(0, vec![draw_triangle, draw_rectangle])]
+        vec![(0, vec![draw_triangle]), (1, vec![draw_rectangle])]
     }
 }
 

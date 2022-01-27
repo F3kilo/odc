@@ -1,25 +1,25 @@
-use bytemuck::{Pod, Zeroable};
+use crate::material::{Material, MaterialFactory, MaterialInfo};
+use bytemuck::Pod;
 use gbuf::GBuffer;
 use gdevice::GfxDevice;
 use instances::Instances;
 use mesh_buf::MeshBuffers;
-use pipeline::ColorMeshPipeline;
 use raw_window_handle::HasRawWindowHandle;
+use std::collections::HashMap;
 use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
 use uniform::Uniform;
 use wgpu::{
-    Backends, Color, CommandEncoder, Instance, LoadOp, Operations, RenderPass,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    SurfaceError,
+    Backends, CommandEncoder, Instance, PipelineLayout, PipelineLayoutDescriptor, RenderPass,
+    RenderPassDescriptor, SurfaceError,
 };
 
 mod gbuf;
 mod gdevice;
 mod instances;
+pub mod material;
 mod mesh_buf;
-mod pipeline;
 mod swapchain;
 mod uniform;
 
@@ -30,7 +30,8 @@ pub struct Odc {
     instances: Instances,
     uniform: Uniform,
     gbuffer: GBuffer,
-    pipeline: ColorMeshPipeline,
+    material_pipeline_layout: PipelineLayout,
+    materials: HashMap<u64, Material>,
 }
 
 impl Odc {
@@ -49,7 +50,7 @@ impl Odc {
 
         let gbuffer = GBuffer::new(&device, size, swapchain.format);
 
-        let pipeline = ColorMeshPipeline::new(&device, &instances, &uniform);
+        let material_pipeline_layout = Self::create_material_pipeline_layout(&device, &uniform);
 
         Self {
             swapchain,
@@ -58,23 +59,42 @@ impl Odc {
             instances,
             uniform,
             gbuffer,
-            pipeline,
+            material_pipeline_layout,
+            materials: Default::default(),
         }
     }
 
-    pub fn write_instances<I: Pod>(&self, instances: &[I], offset: u64) {
-        let byte_offset = mem::size_of::<I>() as u64 * offset;
-        let instance_data = bytemuck::cast_slice(instances);
-        self.device
-            .queue
-            .write_buffer(&self.instances.buffer, byte_offset, instance_data)
+    pub fn create_material(&self, info: &MaterialInfo) -> Material {
+        let factory = MaterialFactory {
+            device: &self.device,
+            uniform: &self.uniform,
+            layout: &self.material_pipeline_layout,
+        };
+
+        factory.create_material(info)
+    }
+
+    pub fn insert_material(&mut self, id: u64, material: Material) -> Option<Material> {
+        self.materials.insert(id, material)
+    }
+
+    pub fn write_instances<T: Pod>(&self, instances: &[T], offset: u64) {
+        let byte_offset = mem::size_of::<T>() as u64 * offset;
+        let byte_data = bytemuck::cast_slice(instances);
+        self.instances.write(&self.device, byte_data, byte_offset);
+    }
+
+    pub fn write_uniform<T: Pod>(&self, data: &[T], offset: u64) {
+        let byte_offset = mem::size_of::<T>() as u64 * offset;
+        let byte_data = bytemuck::cast_slice(data);
+        self.uniform.write(&self.device, byte_data, byte_offset);
     }
 
     pub fn write_vertices<V: Pod>(&self, vertices: &[V], offset: u64) {
         let byte_offset = mem::size_of::<V>() as u64 * offset;
-        let data = bytemuck::cast_slice(vertices);
+        let byte_data = bytemuck::cast_slice(vertices);
         self.mesh_buffers
-            .write_vertices(&self.device, data, byte_offset);
+            .write_vertices(&self.device, byte_data, byte_offset);
     }
 
     pub fn write_indices(&self, indices: &[u32], offset: u64) {
@@ -82,9 +102,7 @@ impl Odc {
             .write_indices(&self.device, indices, offset);
     }
 
-    pub fn render(&self, info: &RenderInfo, draws: Draws) {
-        self.update_uniform(info);
-
+    pub fn render(&self, draws: &Draws) {
         let mut encoder = self
             .device
             .device
@@ -108,72 +126,44 @@ impl Odc {
         frame.present();
     }
 
-    fn update_uniform(&self, info: &RenderInfo) {
-        let render_data = bytemuck::bytes_of(info);
-        self.device
-            .queue
-            .write_buffer(&self.uniform.buffer, 0, render_data);
+    fn create_material_pipeline_layout(device: &GfxDevice, uniform: &Uniform) -> PipelineLayout {
+        let uniform_bind_group_layout = uniform.get_bind_group_layout();
+
+        let layouts = [uniform_bind_group_layout];
+        let descriptor = PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &layouts,
+            push_constant_ranges: &[],
+        };
+        device.device.create_pipeline_layout(&descriptor)
     }
 
     fn begin_render_pass<'a>(&'a self, encoder: &'a mut CommandEncoder) -> RenderPass<'a> {
-        let views = self.gbuffer.get_views();
-        let position_attachment = RenderPassColorAttachment {
-            view: views[0],
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::BLACK),
-                store: true,
-            },
-        };
-
-        let normals_attachment = RenderPassColorAttachment {
-            view: views[1],
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::BLACK),
-                store: true,
-            },
-        };
-
-        let albedo_attachment = RenderPassColorAttachment {
-            view: views[2],
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::BLACK),
-                store: true,
-            },
-        };
-
-        let attachments = [position_attachment, normals_attachment, albedo_attachment];
-
-        let depth_attachment = RenderPassDepthStencilAttachment {
-            view: views[3],
-            depth_ops: Some(Operations {
-                load: LoadOp::Clear(1.0),
-                store: true,
-            }),
-            stencil_ops: None,
-        };
+        let color_attachments = self.gbuffer.get_color_attachments();
+        let depth_attachment = self.gbuffer.get_depth_attachment();
 
         let render_pass_descriptor = RenderPassDescriptor {
             label: None,
-            color_attachments: &attachments,
+            color_attachments: &color_attachments,
             depth_stencil_attachment: Some(depth_attachment),
         };
         encoder.begin_render_pass(&render_pass_descriptor)
     }
 
-    fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: Draws) {
+    fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: &Draws) {
         self.mesh_buffers.bind(pass);
-        pass.set_pipeline(&self.pipeline.pipeline);
-        pass.set_bind_group(0, &self.instances.bind_group, &[]);
-        pass.set_bind_group(1, &self.uniform.bind_group, &[]);
-        for draw in draws.static_mesh {
-            pass.draw_indexed(
-                draw.indices.clone(),
-                draw.base_vertex,
-                draw.instances.clone(),
-            );
+        self.instances.bind(pass);
+
+        for (mat_id, to_draw) in draws {
+            let material = match self.materials.get(mat_id) {
+                Some(m) => m,
+                None => {
+                    log::error!("no material found for draws with id={}", mat_id);
+                    continue;
+                }
+            };
+
+            material.draw(pass, to_draw);
         }
     }
 
@@ -196,16 +186,7 @@ impl WindowSize {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct RenderInfo {
-    pub world: Transform,
-    pub view_proj: Transform,
-}
-
-unsafe impl Zeroable for RenderInfo {}
-unsafe impl Pod for RenderInfo {}
-
-pub struct StaticMesh {
+pub struct DrawData {
     pub indices: Range<u32>,
     pub base_vertex: i32,
     pub instances: Range<u32>,
@@ -213,6 +194,4 @@ pub struct StaticMesh {
 
 pub type Transform = [[f32; 4]; 4];
 
-pub struct Draws<'a> {
-    pub static_mesh: &'a [StaticMesh],
-}
+pub type Draws<'a> = HashMap<u64, &'a [DrawData]>;

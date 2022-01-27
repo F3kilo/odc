@@ -5,9 +5,9 @@ use crate::WindowSize;
 use pipeline::GBufferPipeline;
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource, Color,
-    CommandEncoder, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    Sampler, SamplerDescriptor, TextureFormat,
-    TextureUsages, TextureView,
+    CommandEncoder, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, Sampler, SamplerDescriptor,
+    TextureFormat, TextureUsages, TextureView,
 };
 
 pub struct GBuffer {
@@ -68,13 +68,49 @@ impl GBuffer {
         pass.draw(0..3, 0..1);
     }
 
-    pub fn get_views(&self) -> [&TextureView; 4] {
-        [
-            &self.textures.position_view,
-            &self.textures.normals_view,
-            &self.textures.albedo_view,
-            &self.textures.depth_view,
-        ]
+    pub fn get_color_attachments(&self) -> [RenderPassColorAttachment; 3] {
+        let views = self.textures.get_views();
+        let position_attachment = RenderPassColorAttachment {
+            view: views[0],
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+
+        let normals_attachment = RenderPassColorAttachment {
+            view: views[1],
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+
+        let albedo_attachment = RenderPassColorAttachment {
+            view: views[2],
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(Color::BLACK),
+                store: true,
+            },
+        };
+
+        [position_attachment, normals_attachment, albedo_attachment]
+    }
+
+    pub fn get_depth_attachment(&self) -> RenderPassDepthStencilAttachment {
+        let views = self.textures.get_views();
+
+        RenderPassDepthStencilAttachment {
+            view: views[3],
+            depth_ops: Some(Operations {
+                load: LoadOp::Clear(1.0),
+                store: true,
+            }),
+            stencil_ops: None,
+        }
     }
 
     pub fn resize(&mut self, device: &GfxDevice, size: WindowSize) {
@@ -150,10 +186,10 @@ impl GBuffer {
 }
 
 struct Textures {
-    pub position_view: TextureView,
-    pub normals_view: TextureView,
-    pub albedo_view: TextureView,
-    pub depth_view: TextureView,
+    position_view: TextureView,
+    normals_view: TextureView,
+    albedo_view: TextureView,
+    depth_view: TextureView,
 }
 
 impl Textures {
@@ -175,5 +211,14 @@ impl Textures {
             albedo_view,
             depth_view,
         }
+    }
+
+    pub fn get_views(&self) -> [&TextureView; 4] {
+        [
+            &self.position_view,
+            &self.normals_view,
+            &self.albedo_view,
+            &self.depth_view,
+        ]
     }
 }
