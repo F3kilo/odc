@@ -13,7 +13,7 @@ impl Example for MeshLoadExample {
         let material = renderer.create_material(&common::mesh_material_data().as_info());
         renderer.insert_material(0, material);
 
-        let (vertex_data, index_data) = common::monkey_mesh();
+        let (vertex_data, index_data) = common::load_gltf_mesh("examples/data/models/monkey.glb");
         renderer.write_vertices(&vertex_data, 0);
         renderer.write_indices(&index_data, 0);
         let index_count = index_data.len() / 4;
@@ -44,7 +44,7 @@ impl Example for MeshLoadExample {
 }
 
 fn create_camera() -> Camera {
-    let pos = [0.0, 0.0, 4.0];
+    let pos = [0.0, 0.0, 3.0];
     let target = [0.0; 3];
     let up = [0.0, 1.0, 0.0];
     CameraBuilder::default()

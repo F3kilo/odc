@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
+use std::path::Path;
 use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
+use gltf::{buffer, Accessor, Semantic};
 use odc::material::{InputAttribute, InputInfo, MaterialInfo, ShaderInfo};
 use odc::{DrawData, Odc, WindowSize};
 use std::collections::HashMap;
@@ -9,7 +11,7 @@ use std::mem;
 use std::ops::Range;
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use gltf::Semantic;
+
 
 #[derive(Copy, Clone)]
 pub struct ColorVertex {
@@ -248,79 +250,87 @@ pub fn mesh_material_data() -> MaterialData {
 pub type VertexData = Vec<u8>;
 pub type IndexData = Vec<u8>;
 
-pub fn monkey_mesh() -> (VertexData, IndexData) {
-    let (doc, buffers, _) = gltf::import("examples/data/models/monkey.gltf").unwrap();
+pub fn load_gltf_mesh<P: AsRef<Path>>(path: P) -> (VertexData, IndexData) {
+    let (doc, buffers, _) = gltf::import(path).unwrap();
     let mesh = doc.meshes().next().unwrap();
     let primitive = mesh.primitives().next().unwrap();
 
+    let mut mesh_data = MeshData::default();
     let index_accessor = primitive.indices().unwrap();
-
-    let mut position_accessor = None;
-    let mut normal_accessor = None;
+    mesh_data.index_data_from_accessor(index_accessor, &buffers);
     for (semantic, accessor) in primitive.attributes() {
-        match semantic {
-            Semantic::Positions => position_accessor = Some(accessor),
-            Semantic::Normals => normal_accessor = Some(accessor),
-            _ => continue,
-        }
-    }
-    let position_accessor = position_accessor.unwrap();
-    let normal_accessor = normal_accessor.unwrap();
-
-    let mut index_offset = index_accessor.offset();
-    let mut position_offset = position_accessor.offset();
-    let mut normal_offset = normal_accessor.offset();
-
-    let index_count = index_accessor.count();
-    let vertex_count = position_accessor.count();
-
-    let index_view = index_accessor.view().unwrap();
-    let position_view = position_accessor.view().unwrap();
-    let normal_view = normal_accessor.view().unwrap();
-
-    index_offset += index_view.offset();
-    position_offset += position_view.offset();
-    normal_offset += normal_view.offset();
-
-    const VEC3_SIZE: usize = 12;
-
-    let index_stride = index_view.stride();
-    let position_stride = position_view.stride().unwrap_or(VEC3_SIZE);
-    let normal_stride = normal_view.stride().unwrap_or(VEC3_SIZE);
-
-    let index_buffer_index = index_view.buffer().index();
-    let position_buffer_index = position_view.buffer().index();
-    let normal_buffer_index = normal_view.buffer().index();
-
-    let index_buffer = &buffers[index_buffer_index];
-    let position_buffer = &buffers[position_buffer_index];
-    let normal_buffer = &buffers[normal_buffer_index];
-
-    let mut index_data = vec![0u8; index_count * 4];
-    match index_stride {
-        Some(stride) => {
-            let src = &index_buffer[index_offset..(index_offset + index_count * 4)];
-            let dst = index_data.as_mut_slice();
-            copy_with_step(src, stride, dst, 4, 4);
-        }
-        None => index_data.extend(&index_buffer[index_offset..(index_offset + index_count * 4)])
+        mesh_data.vertex_data_from_accessor(semantic, accessor, &buffers);
     }
 
-    const VEC4_SIZE: usize = 16;
-    let mut vertex_data = vec![0u8; vertex_count * VEC4_SIZE * 2];
-    
-    let src = &position_buffer[position_offset..(position_offset + vertex_count * position_stride)];
-    let dst = vertex_data.as_mut_slice();
-    copy_with_step(src, position_stride, dst, VEC4_SIZE * 2, VEC3_SIZE);
-
-    let src = &normal_buffer[normal_offset..(normal_offset + vertex_count * normal_stride)];
-    let dst = &mut vertex_data[VEC4_SIZE..];
-    copy_with_step(src, normal_stride, dst, VEC4_SIZE * 2, VEC3_SIZE);
-
-    (vertex_data, index_data)
+    (mesh_data.0, mesh_data.1)
 }
 
-fn copy_with_step(src: &[u8], src_step: usize, dst: &mut[u8], dst_step: usize, value_size: usize) {
+#[derive(Default)]
+pub struct MeshData(pub VertexData, pub IndexData);
+
+impl MeshData {
+    const VEC3_SIZE: usize = 12;
+    const VEC4_SIZE: usize = 16;
+    const INDEX_SIZE: usize = 4;
+
+    pub fn vertex_data_from_accessor(
+        &mut self,
+        semantic: Semantic,
+        accessor: Accessor,
+        buffers: &[buffer::Data],
+    ) {
+        let dst_offset = match semantic {
+            Semantic::Positions => 0,
+            Semantic::Normals => Self::VEC4_SIZE,
+            _ => return,
+        };
+
+        let value_size = accessor.size();
+        let count = accessor.count();
+        let mut src_offset = accessor.offset();
+
+        self.0.resize(count * Self::VEC4_SIZE * 2, 0);
+
+        let view = accessor.view().unwrap();
+        src_offset += view.offset();
+        let src_step = view.stride().unwrap_or(Self::VEC3_SIZE);
+        let dst_step = view.stride().unwrap_or(Self::VEC4_SIZE) * 2;
+
+        let buffer_index = view.buffer().index();
+        let buffer = &buffers[buffer_index];
+
+        let src = &buffer[src_offset..(src_offset + count * src_step)];
+        let dst = &mut self.0[dst_offset..];
+        copy_with_step(src, src_step, dst, dst_step, value_size);
+    }
+
+    pub fn index_data_from_accessor(&mut self, accessor: Accessor, buffers: &[buffer::Data]) {
+        let mut src_offset = accessor.offset();
+        let count = accessor.count();
+        
+        let view = accessor.view().unwrap();
+        src_offset += view.offset();
+
+        let stride = view.stride();
+        let buffer_index = view.buffer().index();
+        let buffer = &buffers[buffer_index];
+
+        let data_len = count * Self::INDEX_SIZE;
+        self.1.resize(data_len, 0);
+        match stride {
+            Some(stride) => {
+                let src = &buffer[src_offset..(src_offset + data_len)];
+                let dst = self.1.as_mut_slice();
+                copy_with_step(src, stride, dst, Self::INDEX_SIZE, Self::INDEX_SIZE);
+            }
+            None => {
+                self.1.copy_from_slice(&buffer[src_offset..(src_offset + data_len)])
+            }
+        }
+    }
+}
+
+fn copy_with_step(src: &[u8], src_step: usize, dst: &mut [u8], dst_step: usize, value_size: usize) {
     let count = src.len() / src_step;
     for i in 0..count {
         let src_start = i * src_step;

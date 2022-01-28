@@ -1,5 +1,4 @@
 use crate::GfxDevice;
-use std::mem;
 use wgpu::{Buffer, BufferUsages, IndexFormat, RenderPass};
 
 pub struct MeshBuffers {
