@@ -97,7 +97,7 @@ impl Odc {
             .write_vertices(&self.device, byte_data, byte_offset);
     }
 
-    pub fn write_indices(&self, indices: &[u32], offset: u64) {
+    pub fn write_indices(&self, indices: &[u8], offset: u64) {
         self.mesh_buffers
             .write_indices(&self.device, indices, offset);
     }
