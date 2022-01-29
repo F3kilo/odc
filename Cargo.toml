@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "odc",
+    "odc_core",
     "vp_cam"
 ]
 

@@ -110,7 +110,7 @@ impl Odc {
 
         {
             let mut render_pass = self.begin_render_pass(&mut encoder);
-            self.draw_colored_geometry(&mut render_pass, draws);
+            self.draw_geometry(&mut render_pass, draws);
         }
 
         let frame = match self.swapchain.surface.get_current_texture() {
@@ -150,7 +150,7 @@ impl Odc {
         encoder.begin_render_pass(&render_pass_descriptor)
     }
 
-    fn draw_colored_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: &Draws) {
+    fn draw_geometry<'a>(&'a self, pass: &mut RenderPass<'a>, draws: &Draws) {
         self.mesh_buffers.bind(pass);
         self.instances.bind(pass);
 
