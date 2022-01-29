@@ -1,7 +1,7 @@
 # Structure of render engine core:
 
-## PassGraph
-- PassMap
+## PassTree
+- PassName -> [PassName]
 
 ## Pass
 - Name
@@ -13,7 +13,7 @@
 - [InputBufferName]
 - [BindGroupName]
 - Shader
-- Option<Depth>
+- Option<DepthOpts>
 
 ## Attachment
 - TextureName
@@ -21,8 +21,8 @@
 
 ## InputBuffer
 - BufferName
-- StepMode
 - [Attribute]
+- InputType
 - Stride
 
 ## BindGroup
@@ -36,7 +36,7 @@
 - VertexEntryPoint
 - IndexEntryPoint
 
-## Depth
+## DepthOpts
 - TextureName
 
 ## Texture
@@ -66,7 +66,4 @@
 
 ## SamplerBinding
 - Id
-- SamplerName
-
-## Sampler
 - SamplerType

@@ -15,6 +15,7 @@ use wgpu::{
     RenderPassDescriptor, SurfaceError,
 };
 
+mod structure;
 mod gbuf;
 mod gdevice;
 mod instances;
