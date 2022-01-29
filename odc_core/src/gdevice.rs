@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use wgpu::{
     Adapter, Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device, DeviceDescriptor,
-    Extent3d, Instance, Limits, Queue, RequestAdapterOptions, Surface, Texture,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, ShaderModuleDescriptor, ShaderSource, ShaderModule
+    Instance, Limits, Queue, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
+    ShaderSource, Surface,
 };
 
 pub struct GfxDevice {
@@ -41,7 +41,7 @@ impl GfxDevice {
         pollster::block_on(device_fut).unwrap()
     }
 
-    pub fn create_gpu_buffer(&self, size: BufferAddress, usage: BufferUsages) -> Buffer {
+    pub fn create_buffer(&self, size: BufferAddress, usage: BufferUsages) -> Buffer {
         let descriptor = BufferDescriptor {
             label: None,
             size,

@@ -1,5 +1,6 @@
 use crate::gdevice::GfxDevice;
-use crate::structure::{RenderStructure, Size2d};
+use structure as st;
+use structure::Size2d;
 use raw_window_handle::HasRawWindowHandle;
 use render::RenderData;
 use std::ops::Range;
@@ -18,13 +19,13 @@ pub struct OdcCore {
 }
 
 impl OdcCore {
-    pub fn with_window(structure: &RenderStructure, window: WindowInfo) -> Self {
+    pub fn with_window(render: &st::Render, window: WindowInfo) -> Self {
         let instance = Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(&window.handle) };
         let device = GfxDevice::new(&instance, Some(&surface));
         let swapchain = Swapchain::new(&device, surface);
 
-        let data = RenderData::from_structure(&device, structure);
+        let data = RenderData::from_structure(&device.device, render);
 
         Self {
             device,
