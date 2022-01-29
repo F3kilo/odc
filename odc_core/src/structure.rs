@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-pub struct Structure {
+pub struct RenderStructure {
 	pub pass_tree: HashMap<String, Vec<String>>,
 	pub passes: HashMap<String, Pass>,
 	pub pipelines: HashMap<String, Pipeline>,

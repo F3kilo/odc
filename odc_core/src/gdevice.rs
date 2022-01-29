@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use crate::WindowSize;
 use wgpu::{
     Adapter, Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device, DeviceDescriptor,
     Extent3d, Instance, Limits, Queue, RequestAdapterOptions, Surface, Texture,
@@ -50,31 +49,6 @@ impl GfxDevice {
             mapped_at_creation: false,
         };
         self.device.create_buffer(&descriptor)
-    }
-
-    pub fn create_2d_texture(
-        &self,
-        size: WindowSize,
-        format: TextureFormat,
-        usage: TextureUsages,
-    ) -> Texture {
-        let size = Extent3d {
-            width: size.0,
-            height: size.1,
-            depth_or_array_layers: 1,
-        };
-
-        let descriptor = TextureDescriptor {
-            label: None,
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format,
-            usage,
-        };
-
-        self.device.create_texture(&descriptor)
     }
 
     pub fn create_shader(&self, src: &str) -> ShaderModule {
