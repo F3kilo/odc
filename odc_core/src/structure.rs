@@ -39,6 +39,10 @@ impl Render {
             .iter()
             .any(|(_, pipeline)| pipeline.has_index_buffer(name))
     }
+
+    pub fn bind_group_layout(&self, bind_group: &BindGroup) -> BindGroupLayout {
+
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -133,7 +137,20 @@ pub enum InputItemType {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BindGroupLayout {
+    pub bindings: Vec<(ShaderStages, BindingType)>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BindingType {
+	Buffer(BufferType),
+	Texture(TexelType),
+	Sampler(SamplerType),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BindGroup {
+	pub stages: ShaderStages,
     pub bindings: Vec<Binding>,
 }
 
@@ -154,7 +171,14 @@ impl BindGroup {
             }
             false
         })
-    }
+    }    
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ShaderStages {
+    Vertex,
+    Fragment,
+    Both,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -183,6 +207,7 @@ pub struct TextureBinding {
     pub texture: String,
     pub size: Size2d,
     pub offset: Size2d,
+    pub filterable: bool,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -192,7 +217,7 @@ pub struct SamplerBinding {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SamplerType {
-    Color,
+    Color(bool),
     Depth,
 }
 

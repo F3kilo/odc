@@ -25,7 +25,17 @@ impl RenderData {
             .map(|(name, item)| (name.clone(), factory.create_texture(name, item)))
             .collect();
 
-        Self { buffers, textures }
+        let bind_groups = render
+            .bind_groups
+            .iter()
+            .map(|(name, item)| (name.clone(), factory.create_bind_group(name, item)))
+            .collect();
+
+        Self {
+            buffers,
+            textures,
+            bind_groups,
+        }
     }
 }
 
@@ -35,23 +45,23 @@ struct HandlesFactory<'a> {
 }
 
 impl<'a> HandlesFactory<'a> {
-    pub fn create_buffer(&self, name: &str, buffer: &st::Buffer) -> Buffer {
+    pub fn create_buffer(&self, name: &str, info: &st::Buffer) -> Buffer {
         let mut usage = Buffer::find_usages(name, self.render);
         let descriptor = wgpu::BufferDescriptor {
             label: Some(name),
-            size: buffer.size,
+            size: info.size,
             usage,
             mapped_at_creation: false,
         };
         Buffer::new(self.device.create_buffer(&descriptor))
     }
 
-    pub fn create_texture(&self, name: &str, texture: &st::Texture) -> Texture {
+    pub fn create_texture(&self, name: &str, info: &st::Texture) -> Texture {
         let mut usage = Texture::find_usages(name, self.render);
 
         let size = wgpu::Extent3d {
-            width: texture.size.x as _,
-            height: texture.size.y as _,
+            width: info.size.x as _,
+            height: info.size.y as _,
             depth_or_array_layers: 1,
         };
 
@@ -61,10 +71,14 @@ impl<'a> HandlesFactory<'a> {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: Texture::find_format(texture.typ),
+            format: Texture::find_format(info.typ),
             usage,
         };
         Texture::new(self.device.create_texture(&descriptor))
+    }
+
+    pub fn create_bind_group(&self, name: &str, info: &st::BindGroup) -> BindGroup {
+
     }
 }
 
@@ -120,85 +134,100 @@ impl Texture {
     }
 
     pub fn find_format(typ: st::TextureType) -> wgpu::TextureFormat {
-    	match typ {
-    		st::TextureType::Color {texel, texel_count} => Self::find_color_format(texel, texel_count),
-    		st::TextureType::Depth => wgpu::TextureFormat::Depth32Float,
-    	}
+        match typ {
+            st::TextureType::Color { texel, texel_count } => {
+                Self::find_color_format(texel, texel_count)
+            }
+            st::TextureType::Depth => wgpu::TextureFormat::Depth32Float,
+        }
     }
 
-    pub fn find_color_format(texel: st::TexelType, texel_count: st::TexelCount) -> wgpu::TextureFormat {
-    	use st::TexelType as Texel;
-    	use st::BytesPerFloatTexel as FloatBytes;
-    	use st::BytesPerIntTexel as IntBytes;
-    	use st::BytesPerNormTexel as NormBytes;
-    	use st::TexelCount as Count;
-    	use wgpu::TextureFormat as Format;
+    pub fn find_color_format(
+        texel: st::TexelType,
+        texel_count: st::TexelCount,
+    ) -> wgpu::TextureFormat {
+        use st::BytesPerFloatTexel as FloatBytes;
+        use st::BytesPerIntTexel as IntBytes;
+        use st::BytesPerNormTexel as NormBytes;
+        use st::TexelCount as Count;
+        use st::TexelType as Texel;
+        use wgpu::TextureFormat as Format;
 
-    	match (texel, texel_count) {
-    		// 16-bit float
-    		(Texel::Float(FloatBytes::Two), Count::One) => Format::R16Float,
-    		(Texel::Float(FloatBytes::Two), Count::Two) => Format::Rg16Float,
-    		(Texel::Float(FloatBytes::Two), Count::Four) => Format::Rgba16Float,
+        match (texel, texel_count) {
+            // 16-bit float
+            (Texel::Float(FloatBytes::Two, _), Count::One) => Format::R16Float,
+            (Texel::Float(FloatBytes::Two, _), Count::Two) => Format::Rg16Float,
+            (Texel::Float(FloatBytes::Two, _), Count::Four) => Format::Rgba16Float,
 
-    		// 32-bit float
-    		(Texel::Float(FloatBytes::Four), Count::One) => Format::R32Float,
-    		(Texel::Float(FloatBytes::Four), Count::Two) => Format::Rg32Float,
-    		(Texel::Float(FloatBytes::Four), Count::Four) => Format::Rgba32Float,
+            // 32-bit float
+            (Texel::Float(FloatBytes::Four, _), Count::One) => Format::R32Float,
+            (Texel::Float(FloatBytes::Four, _), Count::Two) => Format::Rg32Float,
+            (Texel::Float(FloatBytes::Four, _), Count::Four) => Format::Rgba32Float,
 
-    		// 8-bit int
-    		(Texel::Int(IntBytes::One), Count::One) => Format::R8Sint,
-    		(Texel::Int(IntBytes::One), Count::Two) => Format::Rg8Sint,
-    		(Texel::Int(IntBytes::One), Count::Four) => Format::Rgba8Sint,
+            // 8-bit int
+            (Texel::Int(IntBytes::One), Count::One) => Format::R8Sint,
+            (Texel::Int(IntBytes::One), Count::Two) => Format::Rg8Sint,
+            (Texel::Int(IntBytes::One), Count::Four) => Format::Rgba8Sint,
 
-    		// 16-bit int
-    		(Texel::Int(IntBytes::Two), Count::One) => Format::R16Sint,
-    		(Texel::Int(IntBytes::Two), Count::Two) => Format::Rg16Sint,
-    		(Texel::Int(IntBytes::Two), Count::Four) => Format::Rgba16Sint,
+            // 16-bit int
+            (Texel::Int(IntBytes::Two), Count::One) => Format::R16Sint,
+            (Texel::Int(IntBytes::Two), Count::Two) => Format::Rg16Sint,
+            (Texel::Int(IntBytes::Two), Count::Four) => Format::Rgba16Sint,
 
-    		// 32-bit int
-    		(Texel::Int(IntBytes::Four), Count::One) => Format::R32Sint,
-    		(Texel::Int(IntBytes::Four), Count::Two) => Format::Rg32Sint,
-    		(Texel::Int(IntBytes::Four), Count::Four) => Format::Rgba32Sint,
+            // 32-bit int
+            (Texel::Int(IntBytes::Four), Count::One) => Format::R32Sint,
+            (Texel::Int(IntBytes::Four), Count::Two) => Format::Rg32Sint,
+            (Texel::Int(IntBytes::Four), Count::Four) => Format::Rgba32Sint,
 
-    		// 8-bit uint
-    		(Texel::Uint(IntBytes::One), Count::One) => Format::R8Uint,
-    		(Texel::Uint(IntBytes::One), Count::Two) => Format::Rg8Uint,
-    		(Texel::Uint(IntBytes::One), Count::Four) => Format::Rgba8Uint,
+            // 8-bit uint
+            (Texel::Uint(IntBytes::One), Count::One) => Format::R8Uint,
+            (Texel::Uint(IntBytes::One), Count::Two) => Format::Rg8Uint,
+            (Texel::Uint(IntBytes::One), Count::Four) => Format::Rgba8Uint,
 
-    		// 16-bit uint
-    		(Texel::Uint(IntBytes::Two), Count::One) => Format::R16Uint,
-    		(Texel::Uint(IntBytes::Two), Count::Two) => Format::Rg16Uint,
-    		(Texel::Uint(IntBytes::Two), Count::Four) => Format::Rgba16Uint,
+            // 16-bit uint
+            (Texel::Uint(IntBytes::Two), Count::One) => Format::R16Uint,
+            (Texel::Uint(IntBytes::Two), Count::Two) => Format::Rg16Uint,
+            (Texel::Uint(IntBytes::Two), Count::Four) => Format::Rgba16Uint,
 
-    		// 32-bit uint
-    		(Texel::Uint(IntBytes::Four), Count::One) => Format::R32Uint,
-    		(Texel::Uint(IntBytes::Four), Count::Two) => Format::Rg32Uint,
-    		(Texel::Uint(IntBytes::Four), Count::Four) => Format::Rgba32Uint,
+            // 32-bit uint
+            (Texel::Uint(IntBytes::Four), Count::One) => Format::R32Uint,
+            (Texel::Uint(IntBytes::Four), Count::Two) => Format::Rg32Uint,
+            (Texel::Uint(IntBytes::Four), Count::Four) => Format::Rgba32Uint,
 
-    		// 8-bit snorm
-    		(Texel::Snorm(NormBytes::One), Count::One) => Format::R8Snorm,
-    		(Texel::Snorm(NormBytes::One), Count::Two) => Format::Rg8Snorm,
-    		(Texel::Snorm(NormBytes::One), Count::Four) => Format::Rgba8Snorm,
+            // 8-bit snorm
+            (Texel::Snorm(NormBytes::One), Count::One) => Format::R8Snorm,
+            (Texel::Snorm(NormBytes::One), Count::Two) => Format::Rg8Snorm,
+            (Texel::Snorm(NormBytes::One), Count::Four) => Format::Rgba8Snorm,
 
-    		// 16-bit snorm
-    		(Texel::Snorm(NormBytes::Two), Count::One) => Format::R16Snorm,
-    		(Texel::Snorm(NormBytes::Two), Count::Two) => Format::Rg16Snorm,
-    		(Texel::Snorm(NormBytes::Two), Count::Four) => Format::Rgba16Snorm,
+            // 16-bit snorm
+            (Texel::Snorm(NormBytes::Two), Count::One) => Format::R16Snorm,
+            (Texel::Snorm(NormBytes::Two), Count::Two) => Format::Rg16Snorm,
+            (Texel::Snorm(NormBytes::Two), Count::Four) => Format::Rgba16Snorm,
 
-    		// 8-bit unorm
-    		(Texel::Unorm(NormBytes::One), Count::One) => Format::R8Unorm,
-    		(Texel::Unorm(NormBytes::One), Count::Two) => Format::Rg8Unorm,
-    		(Texel::Unorm(NormBytes::One), Count::Four) => Format::Rgba8Unorm,
+            // 8-bit unorm
+            (Texel::Unorm(NormBytes::One), Count::One) => Format::R8Unorm,
+            (Texel::Unorm(NormBytes::One), Count::Two) => Format::Rg8Unorm,
+            (Texel::Unorm(NormBytes::One), Count::Four) => Format::Rgba8Unorm,
 
-    		// 16-bit unorm
-    		(Texel::Unorm(NormBytes::Two), Count::One) => Format::R16Unorm,
-    		(Texel::Unorm(NormBytes::Two), Count::Two) => Format::Rg16Unorm,
-    		(Texel::Unorm(NormBytes::Two), Count::Four) => Format::Rgba16Unorm,
-    	}
+            // 16-bit unorm
+            (Texel::Unorm(NormBytes::Two), Count::One) => Format::R16Unorm,
+            (Texel::Unorm(NormBytes::Two), Count::Two) => Format::Rg16Unorm,
+            (Texel::Unorm(NormBytes::Two), Count::Four) => Format::Rgba16Unorm,
+        }
     }
 }
 
-type BindGroup = wgpu::BindGroup;
+struct BindGroup {
+    layout: wgpu::BindGroupLayout,
+    bind_group: wgpu::BindGroup,
+}
+
+impl BindGroup {
+    pub fn new(layout: wgpu::BindGroupLayout, bind_group: wgpu::BindGroup) -> Self {
+        Self { layout, bind_group }
+    }
+}
+
 type RenderPipeline = wgpu::RenderPipeline;
 
 struct Pass;
