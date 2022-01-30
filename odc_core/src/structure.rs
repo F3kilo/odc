@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Render {
     pub pass_tree: HashMap<String, Vec<String>>,
     pub passes: HashMap<String, Pass>,
@@ -11,54 +12,57 @@ pub struct Render {
 }
 
 impl Render {
-    pub fn is_uniform_buffer(&self, name: &str) -> bool {
-        for (_, bg) in &self.bind_groups {
-            if bg.has_buffer_with_type(name, BufferType::Uniform) {
-                return true;
-            }
-        }
-        false
+    pub fn has_buffer_binding(&self, name: &str, typ: BufferType) -> bool {
+        self.bind_groups
+            .iter()
+            .any(|(_, bg)| bg.has_buffer_with_type(name, typ))
     }
 
-    pub fn is_storage_buffer(&self, name: &str) -> bool {
-        for (_, bg) in &self.bind_groups {
-            if bg.has_buffer_with_type(name, BufferType::Storage) {
-                return true;
-            }
-        }
-        false
+    pub fn has_texture_binding(&self, name: &str) -> bool {
+        self.bind_groups.iter().any(|(_, bg)| bg.has_texture(name))
     }
 
-    pub fn is_vertex_buffer(&self, name: &str) -> bool {
-        for (_, pipeline) in &self.pipelines {
-            if pipeline.has_input_buffer(name) {
-                return true;
-            }
-        }
-        false
+    pub fn has_texture_attachment(&self, name: &str) -> bool {
+        self.passes
+            .iter()
+            .any(|(_, pass)| pass.has_texture_attachment(name))
     }
 
-    pub fn is_index_buffer(&self, name: &str) -> bool {
-        for (_, pipeline) in &self.pipelines {
-            if pipeline.has_index_buffer(name) {
-                return true;
-            }
-        }
-        false
+    pub fn has_input_buffer(&self, name: &str) -> bool {
+        self.pipelines
+            .iter()
+            .any(|(_, pipeline)| pipeline.has_input_buffer(name))
+    }
+
+    pub fn has_index_buffer(&self, name: &str) -> bool {
+        self.pipelines
+            .iter()
+            .any(|(_, pipeline)| pipeline.has_index_buffer(name))
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Pass {
     pub pipelines: Vec<String>,
     pub attachments: Vec<Attachment>,
 }
 
+impl Pass {
+    pub fn has_texture_attachment(&self, name: &str) -> bool {
+        self.attachments.iter().any(|attachment| {
+            return name == &attachment.texture;
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Attachment {
     pub texture: String,
     pub size: Size2d,
     pub offset: Size2d,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Pipeline {
     pub input_buffers: Vec<InputBuffer>,
     pub index_buffer: String,
@@ -79,18 +83,22 @@ impl Pipeline {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DepthOps {
     texture: String,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Shader {
     pub uri: Uri,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Uri {
     File(PathBuf),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InputBuffer {
     pub buffer: String,
     pub attributes: Vec<InputAttribute>,
@@ -98,28 +106,33 @@ pub struct InputBuffer {
     pub stride: u64,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct InputAttribute {
     pub offset: u64,
     pub item: u64,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct InputItem {
     pub typ: InputItemType,
     pub bytes: u8,
     pub count: u8,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputType {
     PerVertex,
     PerInstance,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputItemType {
     Float,
     Signed,
     Unsigned,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BindGroup {
     pub bindings: Vec<Binding>,
 }
@@ -133,14 +146,25 @@ impl BindGroup {
             false
         })
     }
+
+    pub fn has_texture(&self, name: &str) -> bool {
+        self.bindings.iter().any(|binding| {
+            if let Binding::Texture(TextureBinding { texture, .. }) = binding {
+                return name == texture;
+            }
+            false
+        })
+    }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Binding {
     Buffer(BufferBinding),
     Texture(TextureBinding),
     Sampler(SamplerBinding),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BufferBinding {
     pub buffer: String,
     pub typ: BufferType,
@@ -154,35 +178,42 @@ pub enum BufferType {
     Storage,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TextureBinding {
     pub texture: String,
     pub size: Size2d,
     pub offset: Size2d,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct SamplerBinding {
     pub sampler_type: SamplerType,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SamplerType {
     Color,
     Depth,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Buffer {
     pub size: u64,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Size2d {
     pub x: u64,
     pub y: u64,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Texture {
     pub typ: TextureType,
     pub size: Size2d,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TextureType {
     Color {
         texel: TexelType,
@@ -191,22 +222,35 @@ pub enum TextureType {
     Depth,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TexelType {
     Float(BytesPerFloatTexel),
     Int(BytesPerIntTexel),
+    Uint(BytesPerIntTexel),
+    Snorm(BytesPerNormTexel),
+    Unorm(BytesPerNormTexel),
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BytesPerFloatTexel {
     Two,
     Four,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BytesPerIntTexel {
     One,
     Two,
     Four,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BytesPerNormTexel {
+    One,
+    Two,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TexelCount {
     One,
     Two,
