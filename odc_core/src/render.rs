@@ -25,10 +25,10 @@ impl RenderData {
             .map(|(name, item)| (name.clone(), factory.create_texture(name, item)))
             .collect();
 
-        let bind_groups = render
+        let bind_groups_layouts = render
             .bind_groups
             .iter()
-            .map(|(name, item)| (name.clone(), factory.create_bind_group(name, item)))
+            .map(|(name, item)| (name.clone(), factory.create_bind_group_layout(name, item)))
             .collect();
 
         Self {
@@ -77,8 +77,18 @@ impl<'a> HandlesFactory<'a> {
         Texture::new(self.device.create_texture(&descriptor))
     }
 
-    pub fn create_bind_group(&self, name: &str, info: &st::BindGroup) -> BindGroup {
+    pub fn create_bind_group_layout(&self, name: &str, info: &st::BindGroup) -> wgpu::BindGroupLayout {
+        let layout_info = self.render.bind_group_layout(info);
+        let entries: Vec<_> = layout_info.bindings.iter().enumerate().map(|(i, (stage, info))| {
+            BindGroup::layout_entry(i as _, *stage, info)
+        }).collect();
+        
+        let descriptor = wgpu::BindGroupLayoutDescriptor {
+            label: Some(name),
+            entries: &entries,
+        };
 
+        self.device.create_bind_group_layout(&descriptor)
     }
 }
 
@@ -155,29 +165,29 @@ impl Texture {
 
         match (texel, texel_count) {
             // 16-bit float
-            (Texel::Float(FloatBytes::Two, _), Count::One) => Format::R16Float,
-            (Texel::Float(FloatBytes::Two, _), Count::Two) => Format::Rg16Float,
-            (Texel::Float(FloatBytes::Two, _), Count::Four) => Format::Rgba16Float,
+            (Texel::Float(FloatBytes::Two), Count::One) => Format::R16Float,
+            (Texel::Float(FloatBytes::Two), Count::Two) => Format::Rg16Float,
+            (Texel::Float(FloatBytes::Two), Count::Four) => Format::Rgba16Float,
 
             // 32-bit float
-            (Texel::Float(FloatBytes::Four, _), Count::One) => Format::R32Float,
-            (Texel::Float(FloatBytes::Four, _), Count::Two) => Format::Rg32Float,
-            (Texel::Float(FloatBytes::Four, _), Count::Four) => Format::Rgba32Float,
+            (Texel::Float(FloatBytes::Four), Count::One) => Format::R32Float,
+            (Texel::Float(FloatBytes::Four), Count::Two) => Format::Rg32Float,
+            (Texel::Float(FloatBytes::Four), Count::Four) => Format::Rgba32Float,
 
             // 8-bit int
-            (Texel::Int(IntBytes::One), Count::One) => Format::R8Sint,
-            (Texel::Int(IntBytes::One), Count::Two) => Format::Rg8Sint,
-            (Texel::Int(IntBytes::One), Count::Four) => Format::Rgba8Sint,
+            (Texel::Sint(IntBytes::One), Count::One) => Format::R8Sint,
+            (Texel::Sint(IntBytes::One), Count::Two) => Format::Rg8Sint,
+            (Texel::Sint(IntBytes::One), Count::Four) => Format::Rgba8Sint,
 
             // 16-bit int
-            (Texel::Int(IntBytes::Two), Count::One) => Format::R16Sint,
-            (Texel::Int(IntBytes::Two), Count::Two) => Format::Rg16Sint,
-            (Texel::Int(IntBytes::Two), Count::Four) => Format::Rgba16Sint,
+            (Texel::Sint(IntBytes::Two), Count::One) => Format::R16Sint,
+            (Texel::Sint(IntBytes::Two), Count::Two) => Format::Rg16Sint,
+            (Texel::Sint(IntBytes::Two), Count::Four) => Format::Rgba16Sint,
 
             // 32-bit int
-            (Texel::Int(IntBytes::Four), Count::One) => Format::R32Sint,
-            (Texel::Int(IntBytes::Four), Count::Two) => Format::Rg32Sint,
-            (Texel::Int(IntBytes::Four), Count::Four) => Format::Rgba32Sint,
+            (Texel::Sint(IntBytes::Four), Count::One) => Format::R32Sint,
+            (Texel::Sint(IntBytes::Four), Count::Two) => Format::Rg32Sint,
+            (Texel::Sint(IntBytes::Four), Count::Four) => Format::Rgba32Sint,
 
             // 8-bit uint
             (Texel::Uint(IntBytes::One), Count::One) => Format::R8Uint,
@@ -225,6 +235,77 @@ struct BindGroup {
 impl BindGroup {
     pub fn new(layout: wgpu::BindGroupLayout, bind_group: wgpu::BindGroup) -> Self {
         Self { layout, bind_group }
+    }
+
+    pub fn layout_entry(
+        index: u32,
+        stage: st::ShaderStage,
+        binding_info: &st::BindingInfo,
+    ) -> wgpu::BindGroupLayoutEntry {
+        let binding_type = match binding_info {
+            st::BindingInfo::Buffer(buffer_type) => Self::buffer_binding_type(*buffer_type),
+            st::BindingInfo::Texture(texture_type, filterable) => {
+                Self::texture_binding_type(*texture_type, *filterable)
+            }
+            st::BindingInfo::Sampler(sampler_type) => Self::sampler_binding_type(*sampler_type),
+        };
+
+        let visibility = match stage {
+            st::ShaderStage::Vertex => wgpu::ShaderStages::VERTEX,
+            st::ShaderStage::Fragment => wgpu::ShaderStages::FRAGMENT,
+            st::ShaderStage::Both => wgpu::ShaderStages::VERTEX_FRAGMENT,
+        };
+
+        wgpu::BindGroupLayoutEntry {
+            binding: index,
+            visibility,
+            ty: binding_type,
+            count: None,
+        }
+    }
+
+    fn buffer_binding_type(buffer_type: st::BufferType) -> wgpu::BindingType {
+        let ty = match buffer_type {
+            st::BufferType::Uniform => wgpu::BufferBindingType::Uniform,
+            st::BufferType::Storage => wgpu::BufferBindingType::Storage { read_only: true },
+        };
+        wgpu::BindingType::Buffer {
+            ty,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        }
+    }
+
+    fn texture_binding_type(texture_type: st::TextureType, filterable: bool) -> wgpu::BindingType {
+        let sample_type = match texture_type {
+            st::TextureType::Color { texel, .. } => match texel {
+                st::TexelType::Float(_) | st::TexelType::Snorm(_) | st::TexelType::Unorm(_) => {
+                    wgpu::TextureSampleType::Float { filterable }
+                }
+                st::TexelType::Sint(_) => wgpu::TextureSampleType::Sint,
+                st::TexelType::Uint(_) => wgpu::TextureSampleType::Uint,
+            },
+            st::TextureType::Depth => wgpu::TextureSampleType::Depth,
+        };
+        wgpu::BindingType::Texture {
+            sample_type,
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        }
+    }
+
+    fn sampler_binding_type(sampler_type: st::SamplerType) -> wgpu::BindingType {
+        match sampler_type {
+            st::SamplerType::Color(true) => {
+                wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
+            }
+            st::SamplerType::Color(false) => {
+                wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering)
+            }
+            st::SamplerType::Color(true) => {
+                wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison)
+            }
+        }
     }
 }
 

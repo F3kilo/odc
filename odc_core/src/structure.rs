@@ -41,7 +41,23 @@ impl Render {
     }
 
     pub fn bind_group_layout(&self, bind_group: &BindGroup) -> BindGroupLayout {
+        let mut bindings = Vec::with_capacity(bind_group.bindings.len());
+        for (stage, binding) in &bind_group.bindings {
+            let binding_info = self.get_binding_info(binding);
+            bindings.push((*stage, binding_info));
+        }
+        BindGroupLayout { bindings }
+    }
 
+    fn get_binding_info(&self, binding: &Binding) -> BindingInfo {
+        match binding {
+            Binding::Buffer(buffer_binding) => BindingInfo::Buffer(buffer_binding.typ),
+            Binding::Texture(texture_binding) => {
+                let texture = self.textures[&texture_binding.texture];
+                BindingInfo::Texture(texture.typ, texture_binding.filterable)
+            }
+            Binding::Sampler(sampler_binding) => BindingInfo::Sampler(sampler_binding.typ),
+        }
     }
 }
 
@@ -138,27 +154,28 @@ pub enum InputItemType {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BindGroupLayout {
-    pub bindings: Vec<(ShaderStages, BindingType)>,
+    pub bindings: Vec<(ShaderStage, BindingInfo)>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BindingType {
-	Buffer(BufferType),
-	Texture(TexelType),
-	Sampler(SamplerType),
+pub enum BindingInfo {
+    Buffer(BufferType),
+    Texture(TextureType, Filterable),
+    Sampler(SamplerType),
 }
+
+pub type Filterable = bool;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BindGroup {
-	pub stages: ShaderStages,
-    pub bindings: Vec<Binding>,
+    pub bindings: Vec<(ShaderStage, Binding)>,
 }
 
 impl BindGroup {
     pub fn has_buffer_with_type(&self, name: &str, in_typ: BufferType) -> bool {
         self.bindings.iter().any(|binding| {
-            if let Binding::Buffer(BufferBinding { typ, buffer, .. }) = binding {
-                return name == buffer && *typ == in_typ;
+            if let Binding::Buffer(BufferBinding { typ, buffer, .. }) = binding.1 {
+                return name == buffer && typ == in_typ;
             }
             false
         })
@@ -166,16 +183,16 @@ impl BindGroup {
 
     pub fn has_texture(&self, name: &str) -> bool {
         self.bindings.iter().any(|binding| {
-            if let Binding::Texture(TextureBinding { texture, .. }) = binding {
+            if let Binding::Texture(TextureBinding { texture, .. }) = binding.1 {
                 return name == texture;
             }
             false
         })
-    }    
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ShaderStages {
+pub enum ShaderStage {
     Vertex,
     Fragment,
     Both,
@@ -212,12 +229,12 @@ pub struct TextureBinding {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct SamplerBinding {
-    pub sampler_type: SamplerType,
+    pub typ: SamplerType,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SamplerType {
-    Color(bool),
+    Color(Filterable),
     Depth,
 }
 
@@ -250,7 +267,7 @@ pub enum TextureType {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum TexelType {
     Float(BytesPerFloatTexel),
-    Int(BytesPerIntTexel),
+    Sint(BytesPerIntTexel),
     Uint(BytesPerIntTexel),
     Snorm(BytesPerNormTexel),
     Unorm(BytesPerNormTexel),
