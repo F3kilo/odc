@@ -138,47 +138,58 @@ pub enum InputItemType {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BindGroup {
-    pub uniforms: Vec<(u32, UniformBinding)>,
-    pub textures: Vec<(u32, TextureBinding)>,
-    pub samplers: Vec<(u32, SamplerBinding)>,
+    pub uniforms: Vec<Binding<UniformInfo>>,
+    pub textures: Vec<Binding<TextureInfo>>,
+    pub samplers: Vec<Binding<SamplerInfo>>,
 }
 
 impl BindGroup {
     pub fn has_uniform(&self, name: &str) -> bool {
         self.uniforms.iter().any(|binding| {
-            binding.1.buffer == name
+            binding.info.buffer == name
         })
     }
 
     pub fn has_texture(&self, name: &str) -> bool {
         self.textures.iter().any(|binding| {
-            binding.1.texture == name
+            binding.info.texture == name
         })
     }
 
     pub fn has_sampler(&self, samplers_type: SamplerType) -> bool {
         self.samplers.iter().any(|binding| {
-            binding.1.sampler_type == samplers_type
+            binding.info.sampler_type == samplers_type
         })
+    }
+
+    pub fn bindings_count(&self) -> usize {
+        self.uniforms.len() + self.textures.len() + self.samplers.len()
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ShaderStage {
+pub enum ShaderStages {
     Vertex,
     Fragment,
     Both,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct UniformBinding {
+pub struct Binding<BindingInfo> {
+    pub index: u32,
+    pub shader_stages: ShaderStages,
+    pub info: BindingInfo,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct UniformInfo {
     pub buffer: String,
     pub size: u64,
     pub offset: u64,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TextureBinding {
+pub struct TextureInfo {
     pub texture: String,
     pub size: Size2d,
     pub offset: Size2d,
@@ -186,7 +197,7 @@ pub struct TextureBinding {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct SamplerBinding {
+pub struct SamplerInfo {
     pub sampler_type: SamplerType,
 }
 

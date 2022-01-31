@@ -1,10 +1,9 @@
 use crate::structure as st;
+use core::num::NonZeroU64;
 use std::collections::HashMap;
 
 pub struct RenderData {
-    buffers: HashMap<String, Buffer>,
-    textures: HashMap<String, Texture>,
-    samplers: HashMap<st::SamplerType, Sampler>,
+    resources: Resources,
     bind_groups: HashMap<String, BindGroup>,
     render_pipelines: HashMap<String, RenderPipeline>,
     passes: HashMap<String, Pass>,
@@ -28,16 +27,26 @@ impl RenderData {
 
         let samplers = factory.create_samplers();
 
-        // let bind_groups_layouts = render
-        //     .bind_groups
-        //     .iter()
-        //     .map(|(name, item)| (name.clone(), factory.create_bind_group_layout(name, item)))
-        //     .collect();
-
-        Self {
+        let resources = Resources {
             buffers,
             textures,
             samplers,
+        };
+
+        let bind_groups = render
+            .bind_groups
+            .iter()
+            .map(|(name, item)| {
+                let bind_group = factory.create_bind_group(name, item, resources);
+                (name.clone(), bind_group)
+            })
+            .collect();
+
+        Self {
+            resources,
+            bind_groups,
+            render_pipelines: Default::default(),
+            passes: Default::default(),
         }
     }
 }
@@ -81,35 +90,109 @@ impl<'a> HandlesFactory<'a> {
     }
 
     pub fn create_samplers(&self) -> HashMap<st::SamplerType, Sampler> {
-        let sampler_types = [st::SamplerType::Filter, st::SamplerType::NonFilter, st::SamplerType::Depth];
-        sampler_types.iter().filter(|typ| self.render.has_sampler(**typ)).map(|typ| {
-            let filter_mode = Sampler::filter_mode(*typ);
-            let compare = Sampler::compare(*typ);
-            let descriptor = wgpu::SamplerDescriptor {
-                mag_filter: filter_mode,
-                min_filter: filter_mode,
-                mipmap_filter: filter_mode,
-                compare,
-                ..Default::default()
-            };
-            let sampler = self.device.create_sampler(&descriptor);
-            (*typ, Sampler::new(sampler))
-        }).collect()
+        let sampler_types = [
+            st::SamplerType::Filter,
+            st::SamplerType::NonFilter,
+            st::SamplerType::Depth,
+        ];
+        sampler_types
+            .iter()
+            .filter(|typ| self.render.has_sampler(**typ))
+            .map(|typ| {
+                let filter_mode = Sampler::filter_mode(*typ);
+                let compare = Sampler::compare(*typ);
+                let descriptor = wgpu::SamplerDescriptor {
+                    mag_filter: filter_mode,
+                    min_filter: filter_mode,
+                    mipmap_filter: filter_mode,
+                    compare,
+                    ..Default::default()
+                };
+                let sampler = self.device.create_sampler(&descriptor);
+                (*typ, Sampler::new(sampler))
+            })
+            .collect()
     }
 
-    // pub fn create_bind_group_layout(&self, name: &str, info: &st::BindGroup) -> wgpu::BindGroupLayout {
-    //     let layout_info = self.render.bind_group_layout(info);
-    //     let entries: Vec<_> = layout_info.bindings.iter().enumerate().map(|(i, (stage, info))| {
-    //         BindGroup::layout_entry(i as _, *stage, info)
-    //     }).collect();
+    pub fn create_bind_group(
+        &self,
+        name: &str,
+        info: &st::BindGroup,
+        resources: &Resources,
+    ) -> BindGroup {
+        let layout = self.create_bind_group_layout(name, info);
         
-    //     let descriptor = wgpu::BindGroupLayoutDescriptor {
-    //         label: Some(name),
-    //         entries: &entries,
-    //     };
+        todo!()
+    }
 
-    //     self.device.create_bind_group_layout(&descriptor)
-    // }
+    pub fn create_bind_group_layout(
+        &self,
+        name: &str,
+        info: &st::BindGroup,
+    ) -> wgpu::BindGroupLayout {
+        let entries = Vec::with_capacity(info.bindings_count());
+        entries.extend(self.uniform_entries(&info.uniforms));
+        entries.extend(self.texture_entries(&info.textures));
+        entries.extend(info.samplers.iter().map(BindGroup::sampler_layout_entry));
+
+        let descriptor = wgpu::BindGroupLayoutDescriptor {
+            label: Some(name),
+            entries: &entries,
+        };
+        self.device.create_bind_group_layout(&descriptor)
+    }
+
+    fn uniform_entries<'b>(
+        &self,
+        bindings: &'b [st::Binding<st::UniformInfo>],
+    ) -> impl Iterator<Item = wgpu::BindGroupLayoutEntry> + 'b {
+        bindings.iter().map(|binding| {
+            let size = NonZeroU64::new(binding.info.size);
+            let ty = wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: size,
+            };
+
+            let visibility = BindGroup::layout_entry_visibility(binding.shader_stages);
+
+            wgpu::BindGroupLayoutEntry {
+                binding: binding.index,
+                visibility,
+                ty,
+                count: None,
+            }
+        })
+    }
+
+    fn texture_entries<'b>(
+        &self,
+        bindings: &'b [st::Binding<st::TextureInfo>],
+    ) -> impl Iterator<Item = wgpu::BindGroupLayoutEntry> + 'b
+    where
+        'a: 'b,
+    {
+        bindings.iter().map(|binding| {
+            let filterable = binding.info.filterable;
+            let texture = self.render.textures[&binding.info.texture];
+            let sample_type = BindGroup::texture_sample_type(texture.typ, filterable);
+
+            let ty = wgpu::BindingType::Texture {
+                sample_type,
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            };
+
+            let visibility = BindGroup::layout_entry_visibility(binding.shader_stages);
+
+            wgpu::BindGroupLayoutEntry {
+                binding: binding.index,
+                visibility,
+                ty,
+                count: None,
+            }
+        })
+    }
 }
 
 struct Buffer(wgpu::Buffer);
@@ -265,6 +348,20 @@ impl Sampler {
             st::SamplerType::Depth => Some(wgpu::CompareFunction::Less),
         }
     }
+
+    pub fn binding_type(sampler_type: st::SamplerType) -> wgpu::SamplerBindingType {
+        match sampler_type {
+            st::SamplerType::Filter => wgpu::SamplerBindingType::Filtering,
+            st::SamplerType::NonFilter => wgpu::SamplerBindingType::NonFiltering,
+            st::SamplerType::Depth => wgpu::SamplerBindingType::Comparison,
+        }
+    }
+}
+
+struct Resources {
+    pub buffers: HashMap<String, Buffer>,
+    pub textures: HashMap<String, Texture>,
+    pub samplers: HashMap<st::SamplerType, Sampler>,
 }
 
 struct BindGroup {
@@ -275,6 +372,41 @@ struct BindGroup {
 impl BindGroup {
     pub fn new(layout: wgpu::BindGroupLayout, bind_group: wgpu::BindGroup) -> Self {
         Self { layout, bind_group }
+    }
+
+    pub fn layout_entry_visibility(stages: st::ShaderStages) -> wgpu::ShaderStages {
+        match stages {
+            st::ShaderStages::Vertex => wgpu::ShaderStages::VERTEX,
+            st::ShaderStages::Fragment => wgpu::ShaderStages::FRAGMENT,
+            st::ShaderStages::Both => wgpu::ShaderStages::VERTEX_FRAGMENT,
+        }
+    }
+
+    pub fn texture_sample_type(
+        texture_type: st::TextureType,
+        filterable: bool,
+    ) -> wgpu::TextureSampleType {
+        match texture_type {
+            st::TextureType::Color { texel, .. } => match texel {
+                st::TexelType::Float(_) | st::TexelType::Snorm(_) | st::TexelType::Unorm(_) => {
+                    wgpu::TextureSampleType::Float { filterable }
+                }
+                st::TexelType::Sint(_) => wgpu::TextureSampleType::Sint,
+                st::TexelType::Uint(_) => wgpu::TextureSampleType::Uint,
+            },
+            st::TextureType::Depth => wgpu::TextureSampleType::Depth,
+        }
+    }
+
+    pub fn sampler_layout_entry(
+        binding: &st::Binding<st::SamplerInfo>,
+    ) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding: binding.index,
+            visibility: Self::layout_entry_visibility(binding.shader_stages),
+            ty: wgpu::BindingType::Sampler(Sampler::binding_type(binding.info.sampler_type)),
+            count: None,
+        }
     }
 
     // pub fn layout_entry(
