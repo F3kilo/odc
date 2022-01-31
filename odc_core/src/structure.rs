@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub struct Render {
     pub pass_tree: HashMap<String, Vec<String>>,
     pub passes: HashMap<String, Pass>,
-    pub pipelines: HashMap<String, Pipeline>,
+    pub pipelines: HashMap<String, RenderPipeline>,
     pub bind_groups: HashMap<String, BindGroup>,
     pub textures: HashMap<String, Texture>,
     pub buffers: HashMap<String, Buffer>,
@@ -13,9 +13,7 @@ pub struct Render {
 
 impl Render {
     pub fn has_uniform_binding(&self, name: &str) -> bool {
-        self.bind_groups
-            .iter()
-            .any(|(_, bg)| bg.has_uniform(name))
+        self.bind_groups.iter().any(|(_, bg)| bg.has_uniform(name))
     }
 
     pub fn has_texture_binding(&self, name: &str) -> bool {
@@ -41,7 +39,9 @@ impl Render {
     }
 
     pub fn has_sampler(&self, sampler_type: SamplerType) -> bool {
-        self.bind_groups.iter().any(|(_, bg)| bg.has_sampler(sampler_type))
+        self.bind_groups
+            .iter()
+            .any(|(_, bg)| bg.has_sampler(sampler_type))
     }
 }
 
@@ -53,9 +53,9 @@ pub struct Pass {
 
 impl Pass {
     pub fn has_texture_attachment(&self, name: &str) -> bool {
-        self.attachments.iter().any(|attachment| {
-            return name == &attachment.texture;
-        })
+        self.attachments
+            .iter()
+            .any(|attachment| name == attachment.texture)
     }
 }
 
@@ -67,7 +67,7 @@ pub struct Attachment {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Pipeline {
+pub struct RenderPipeline {
     pub input_buffers: Vec<InputBuffer>,
     pub index_buffer: String,
     pub bind_groups: Vec<String>,
@@ -75,15 +75,15 @@ pub struct Pipeline {
     pub depth: Option<DepthOps>,
 }
 
-impl Pipeline {
+impl RenderPipeline {
     pub fn has_input_buffer(&self, name: &str) -> bool {
         self.input_buffers
             .iter()
-            .any(|in_buf| &in_buf.buffer == name)
+            .any(|in_buf| in_buf.buffer == name)
     }
 
     pub fn has_index_buffer(&self, name: &str) -> bool {
-        &self.index_buffer == name
+        self.index_buffer == name
     }
 }
 
@@ -94,12 +94,9 @@ pub struct DepthOps {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Shader {
-    pub uri: Uri,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Uri {
-    File(PathBuf),
+    pub path: PathBuf,
+    pub vs_main: String,
+    pub fs_main: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -112,28 +109,49 @@ pub struct InputBuffer {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct InputAttribute {
+    pub item: InputItem,
     pub offset: u64,
-    pub item: u64,
+    pub location: u32,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct InputItem {
-    pub typ: InputItemType,
-    pub bytes: u8,
-    pub count: u8,
+pub enum InputItem {
+    Float16x2,
+    Float16x4,
+    Float32,
+    Float32x2,
+    Float32x3,
+    Float32x4,
+    Sint16x2,
+    Sint16x4,
+    Sint32,
+    Sint32x2,
+    Sint32x3,
+    Sint32x4,
+    Sint8x2,
+    Sint8x4,
+    Snorm16x2,
+    Snorm16x4,
+    Snorm8x2,
+    Snorm8x4,
+    Uint16x2,
+    Uint16x4,
+    Uint32,
+    Uint32x2,
+    Uint32x3,
+    Uint32x4,
+    Uint8x2,
+    Uint8x4,
+    Unorm16x2,
+    Unorm16x4,
+    Unorm8x2,
+    Unorm8x4,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputType {
     PerVertex,
     PerInstance,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum InputItemType {
-    Float,
-    Signed,
-    Unsigned,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -145,21 +163,21 @@ pub struct BindGroup {
 
 impl BindGroup {
     pub fn has_uniform(&self, name: &str) -> bool {
-        self.uniforms.iter().any(|binding| {
-            binding.info.buffer == name
-        })
+        self.uniforms
+            .iter()
+            .any(|binding| binding.info.buffer == name)
     }
 
     pub fn has_texture(&self, name: &str) -> bool {
-        self.textures.iter().any(|binding| {
-            binding.info.texture == name
-        })
+        self.textures
+            .iter()
+            .any(|binding| binding.info.texture == name)
     }
 
     pub fn has_sampler(&self, samplers_type: SamplerType) -> bool {
-        self.samplers.iter().any(|binding| {
-            binding.info.sampler_type == samplers_type
-        })
+        self.samplers
+            .iter()
+            .any(|binding| binding.info.sampler_type == samplers_type)
     }
 
     pub fn bindings_count(&self) -> usize {

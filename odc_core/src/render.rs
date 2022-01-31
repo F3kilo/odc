@@ -1,6 +1,8 @@
 use crate::structure as st;
 use core::num::NonZeroU64;
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fs;
 
 pub struct RenderData {
     resources: Resources,
@@ -42,10 +44,19 @@ impl RenderData {
             })
             .collect();
 
+        let render_pipelines = render
+            .pipelines
+            .iter()
+            .map(|(name, item)| {
+                let pipeline = factory.create_pipeline(name, item, &bind_groups);
+                (name.clone(), pipeline)
+            })
+            .collect();
+
         Self {
             resources,
             bind_groups,
-            render_pipelines: Default::default(),
+            render_pipelines,
             passes: Default::default(),
         }
     }
@@ -174,6 +185,108 @@ impl<'a> HandlesFactory<'a> {
         self.device.create_bind_group_layout(&descriptor)
     }
 
+    pub fn create_pipeline(
+        &self,
+        name: &str,
+        info: &st::RenderPipeline,
+        bind_groups: &HashMap<String, BindGroup>,
+    ) -> RenderPipeline {
+        let shader_data = fs::read_to_string(&info.shader.path).expect("shader file not found");
+        let shader_src = Cow::Owned(shader_data);
+        let source = wgpu::ShaderSource::Wgsl(shader_src);
+        let descriptor = wgpu::ShaderModuleDescriptor {
+            label: None,
+            source,
+        };
+        let shader_module = self.device.create_shader_module(&descriptor);
+
+        let input_buffers_data = RenderPipeline::input_buffers_data(&info.input_buffers);
+        let input_buffers = RenderPipeline::wgpu_vertex_buffer_layouts(&input_buffers_data);
+
+        let vertex = wgpu::VertexState {
+            module: &shader_module,
+            entry_point: &info.shader.vs_main,
+            buffers: &input_buffers,
+        };
+
+        let layout = self.create_pipeline_layout(name, bind_groups);
+
+        let primitive = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Front),
+            unclipped_depth: false,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            conservative: false,
+        };
+
+        let depth_stencil = info.depth.as_ref().map(|_| wgpu::DepthStencilState {
+            format: Texture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        });
+
+        let color_targets = self.pipeline_targets(name);
+
+        let fragment = Some(wgpu::FragmentState {
+            module: &shader_module,
+            entry_point: &info.shader.fs_main,
+            targets: &color_targets,
+        });
+
+        let descriptor = wgpu::RenderPipelineDescriptor {
+            label: Some(name),
+            layout: Some(&layout),
+            vertex,
+            primitive,
+            depth_stencil,
+            multisample: Default::default(),
+            fragment,
+            multiview: None,
+        };
+
+        RenderPipeline::new(self.device.create_render_pipeline(&descriptor))
+    }
+
+    pub fn create_pipeline_layout(
+        &self,
+        name: &str,
+        bind_groups: &HashMap<String, BindGroup>,
+    ) -> wgpu::PipelineLayout {
+        let layouts: Vec<_> = bind_groups.values().map(|bg| &bg.layout).collect();
+
+        let descriptor = wgpu::PipelineLayoutDescriptor {
+            label: Some(name),
+            bind_group_layouts: &layouts,
+            push_constant_ranges: &[],
+        };
+
+        self.device.create_pipeline_layout(&descriptor)
+    }
+
+    fn pipeline_targets(&self, pipeline: &str) -> Vec<wgpu::ColorTargetState> {
+        for pass in self.render.passes.values() {
+            if pass.pipelines.iter().any(|p| p == pipeline) {
+                return pass
+                    .attachments
+                    .iter()
+                    .map(|attachment| {
+                        let texture = &self.render.textures[&attachment.texture];
+                        wgpu::ColorTargetState {
+                            format: Texture::find_format(texture.typ),
+                            blend: None,
+                            write_mask: Default::default(),
+                        }
+                    })
+                    .collect();
+            }
+        }
+        panic!("pipeline {} is not used in any pass", pipeline);
+    }
+
     fn uniform_entries<'b>(
         &self,
         bindings: &'b [st::Binding<st::UniformInfo>],
@@ -257,6 +370,8 @@ impl Buffer {
 struct Texture(wgpu::Texture);
 
 impl Texture {
+    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+
     pub fn new(handle: wgpu::Texture) -> Self {
         Self(handle)
     }
@@ -553,6 +668,94 @@ impl BindGroup {
     // }
 }
 
-type RenderPipeline = wgpu::RenderPipeline;
+struct RenderPipeline(wgpu::RenderPipeline);
+
+impl RenderPipeline {
+    pub fn new(pipeline: wgpu::RenderPipeline) -> Self {
+        Self(pipeline)
+    }
+
+    pub fn input_buffers_data(input_buffers: &[st::InputBuffer]) -> Vec<InputBufferLayout> {
+        input_buffers.iter().map(InputBufferLayout::new).collect()
+    }
+
+    pub fn wgpu_vertex_buffer_layouts(data: &[InputBufferLayout]) -> Vec<wgpu::VertexBufferLayout> {
+        data.iter()
+            .map(|layout| wgpu::VertexBufferLayout {
+                array_stride: layout.stride,
+                step_mode: layout.step_mode,
+                attributes: &layout.attributes,
+            })
+            .collect()
+    }
+}
+
+struct InputBufferLayout {
+    pub stride: u64,
+    pub step_mode: wgpu::VertexStepMode,
+    pub attributes: Vec<wgpu::VertexAttribute>,
+}
+
+impl InputBufferLayout {
+    pub fn new(input_buffer: &st::InputBuffer) -> Self {
+        let step_mode = match input_buffer.input_type {
+            st::InputType::PerVertex => wgpu::VertexStepMode::Vertex,
+            st::InputType::PerInstance => wgpu::VertexStepMode::Instance,
+        };
+
+        let attributes = input_buffer
+            .attributes
+            .iter()
+            .map(Self::wgpu_input_attributes)
+            .collect();
+
+        Self {
+            stride: input_buffer.stride,
+            step_mode,
+            attributes,
+        }
+    }
+
+    fn wgpu_input_attributes(attribute: &st::InputAttribute) -> wgpu::VertexAttribute {
+        let format = match attribute.item {
+            st::InputItem::Float16x2 => wgpu::VertexFormat::Float16x2,
+            st::InputItem::Float16x4 => wgpu::VertexFormat::Float16x4,
+            st::InputItem::Float32 => wgpu::VertexFormat::Float32,
+            st::InputItem::Float32x2 => wgpu::VertexFormat::Float32x2,
+            st::InputItem::Float32x3 => wgpu::VertexFormat::Float32x3,
+            st::InputItem::Float32x4 => wgpu::VertexFormat::Float32x4,
+            st::InputItem::Sint16x2 => wgpu::VertexFormat::Sint16x2,
+            st::InputItem::Sint16x4 => wgpu::VertexFormat::Sint16x4,
+            st::InputItem::Sint32 => wgpu::VertexFormat::Sint32,
+            st::InputItem::Sint32x2 => wgpu::VertexFormat::Sint32x2,
+            st::InputItem::Sint32x3 => wgpu::VertexFormat::Sint32x3,
+            st::InputItem::Sint32x4 => wgpu::VertexFormat::Sint32x4,
+            st::InputItem::Sint8x2 => wgpu::VertexFormat::Sint8x2,
+            st::InputItem::Sint8x4 => wgpu::VertexFormat::Sint8x4,
+            st::InputItem::Snorm16x2 => wgpu::VertexFormat::Snorm16x2,
+            st::InputItem::Snorm16x4 => wgpu::VertexFormat::Snorm16x4,
+            st::InputItem::Snorm8x2 => wgpu::VertexFormat::Snorm8x2,
+            st::InputItem::Snorm8x4 => wgpu::VertexFormat::Snorm8x4,
+            st::InputItem::Uint16x2 => wgpu::VertexFormat::Uint16x2,
+            st::InputItem::Uint16x4 => wgpu::VertexFormat::Uint16x4,
+            st::InputItem::Uint32 => wgpu::VertexFormat::Uint32,
+            st::InputItem::Uint32x2 => wgpu::VertexFormat::Uint32x2,
+            st::InputItem::Uint32x3 => wgpu::VertexFormat::Uint32x3,
+            st::InputItem::Uint32x4 => wgpu::VertexFormat::Uint32x4,
+            st::InputItem::Uint8x2 => wgpu::VertexFormat::Uint8x2,
+            st::InputItem::Uint8x4 => wgpu::VertexFormat::Uint8x4,
+            st::InputItem::Unorm16x2 => wgpu::VertexFormat::Unorm16x2,
+            st::InputItem::Unorm16x4 => wgpu::VertexFormat::Unorm16x4,
+            st::InputItem::Unorm8x2 => wgpu::VertexFormat::Unorm8x2,
+            st::InputItem::Unorm8x4 => wgpu::VertexFormat::Unorm8x4,
+        };
+
+        wgpu::VertexAttribute {
+            format,
+            offset: attribute.offset,
+            shader_location: attribute.location,
+        }
+    }
+}
 
 struct Pass;

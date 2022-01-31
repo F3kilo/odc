@@ -1,7 +1,5 @@
-use std::borrow::Cow;
 use wgpu::{
-    Adapter, Device, DeviceDescriptor, Instance, Limits, Queue, RequestAdapterOptions,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, Surface,
+    Adapter, Device, DeviceDescriptor, Instance, Limits, Queue, RequestAdapterOptions, Surface,
 };
 
 pub struct GfxDevice {
@@ -38,15 +36,5 @@ impl GfxDevice {
         };
         let device_fut = adapter.request_device(&descriptor, None);
         pollster::block_on(device_fut).unwrap()
-    }
-
-    pub fn create_shader(&self, src: &str) -> ShaderModule {
-        let shader_src = Cow::Borrowed(src);
-        let source = ShaderSource::Wgsl(shader_src);
-        let descriptor = ShaderModuleDescriptor {
-            label: None,
-            source,
-        };
-        self.device.create_shader_module(&descriptor)
     }
 }
