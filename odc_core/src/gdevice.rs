@@ -41,16 +41,6 @@ impl GfxDevice {
         pollster::block_on(device_fut).unwrap()
     }
 
-    pub fn create_buffer(&self, size: BufferAddress, usage: BufferUsages) -> Buffer {
-        let descriptor = BufferDescriptor {
-            label: None,
-            size,
-            usage,
-            mapped_at_creation: false,
-        };
-        self.device.create_buffer(&descriptor)
-    }
-
     pub fn create_shader(&self, src: &str) -> ShaderModule {
         let shader_src = Cow::Borrowed(src);
         let source = ShaderSource::Wgsl(shader_src);

@@ -37,7 +37,7 @@ impl RenderData {
             .bind_groups
             .iter()
             .map(|(name, item)| {
-                let bind_group = factory.create_bind_group(name, item, resources);
+                let bind_group = factory.create_bind_group(name, item, &resources);
                 (name.clone(), bind_group)
             })
             .collect();
@@ -118,10 +118,10 @@ impl<'a> HandlesFactory<'a> {
         &self,
         name: &str,
         info: &st::BindGroup,
-        resources: &Resources,
+        _resources: &Resources,
     ) -> BindGroup {
-        let layout = self.create_bind_group_layout(name, info);
-        
+        let _layout = self.create_bind_group_layout(name, info);
+
         todo!()
     }
 
@@ -130,7 +130,7 @@ impl<'a> HandlesFactory<'a> {
         name: &str,
         info: &st::BindGroup,
     ) -> wgpu::BindGroupLayout {
-        let entries = Vec::with_capacity(info.bindings_count());
+        let mut entries = Vec::with_capacity(info.bindings_count());
         entries.extend(self.uniform_entries(&info.uniforms));
         entries.extend(self.texture_entries(&info.textures));
         entries.extend(info.samplers.iter().map(BindGroup::sampler_layout_entry));
@@ -208,7 +208,7 @@ impl Buffer {
         let is_vertex = render.has_input_buffer(name);
         let is_index = render.has_index_buffer(name);
 
-        let usages = wgpu::BufferUsages::COPY_DST;
+        let mut usages = wgpu::BufferUsages::COPY_DST;
         if is_uniform {
             usages |= wgpu::BufferUsages::UNIFORM;
         }
@@ -233,7 +233,7 @@ impl Texture {
         let is_attachment = render.has_texture_attachment(name);
         let is_binding = render.has_texture_binding(name);
 
-        let usages = wgpu::TextureUsages::empty();
+        let mut usages = wgpu::TextureUsages::empty();
         if is_attachment {
             usages |= wgpu::TextureUsages::RENDER_ATTACHMENT;
         }
