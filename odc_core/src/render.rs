@@ -4,6 +4,7 @@ use std::collections::HashMap;
 pub struct RenderData {
     buffers: HashMap<String, Buffer>,
     textures: HashMap<String, Texture>,
+    samplers: HashMap<st::SamplerType, Sampler>,
     bind_groups: HashMap<String, BindGroup>,
     render_pipelines: HashMap<String, RenderPipeline>,
     passes: HashMap<String, Pass>,
@@ -25,16 +26,18 @@ impl RenderData {
             .map(|(name, item)| (name.clone(), factory.create_texture(name, item)))
             .collect();
 
-        let bind_groups_layouts = render
-            .bind_groups
-            .iter()
-            .map(|(name, item)| (name.clone(), factory.create_bind_group_layout(name, item)))
-            .collect();
+        let samplers = factory.create_samplers();
+
+        // let bind_groups_layouts = render
+        //     .bind_groups
+        //     .iter()
+        //     .map(|(name, item)| (name.clone(), factory.create_bind_group_layout(name, item)))
+        //     .collect();
 
         Self {
             buffers,
             textures,
-            bind_groups,
+            samplers,
         }
     }
 }
@@ -77,19 +80,36 @@ impl<'a> HandlesFactory<'a> {
         Texture::new(self.device.create_texture(&descriptor))
     }
 
-    pub fn create_bind_group_layout(&self, name: &str, info: &st::BindGroup) -> wgpu::BindGroupLayout {
-        let layout_info = self.render.bind_group_layout(info);
-        let entries: Vec<_> = layout_info.bindings.iter().enumerate().map(|(i, (stage, info))| {
-            BindGroup::layout_entry(i as _, *stage, info)
-        }).collect();
-        
-        let descriptor = wgpu::BindGroupLayoutDescriptor {
-            label: Some(name),
-            entries: &entries,
-        };
-
-        self.device.create_bind_group_layout(&descriptor)
+    pub fn create_samplers(&self) -> HashMap<st::SamplerType, Sampler> {
+        let sampler_types = [st::SamplerType::Filter, st::SamplerType::NonFilter, st::SamplerType::Depth];
+        sampler_types.iter().filter(|typ| self.render.has_sampler(**typ)).map(|typ| {
+            let filter_mode = Sampler::filter_mode(*typ);
+            let compare = Sampler::compare(*typ);
+            let descriptor = wgpu::SamplerDescriptor {
+                mag_filter: filter_mode,
+                min_filter: filter_mode,
+                mipmap_filter: filter_mode,
+                compare,
+                ..Default::default()
+            };
+            let sampler = self.device.create_sampler(&descriptor);
+            (*typ, Sampler::new(sampler))
+        }).collect()
     }
+
+    // pub fn create_bind_group_layout(&self, name: &str, info: &st::BindGroup) -> wgpu::BindGroupLayout {
+    //     let layout_info = self.render.bind_group_layout(info);
+    //     let entries: Vec<_> = layout_info.bindings.iter().enumerate().map(|(i, (stage, info))| {
+    //         BindGroup::layout_entry(i as _, *stage, info)
+    //     }).collect();
+        
+    //     let descriptor = wgpu::BindGroupLayoutDescriptor {
+    //         label: Some(name),
+    //         entries: &entries,
+    //     };
+
+    //     self.device.create_bind_group_layout(&descriptor)
+    // }
 }
 
 struct Buffer(wgpu::Buffer);
@@ -100,17 +120,14 @@ impl Buffer {
     }
 
     pub fn find_usages(name: &str, render: &st::Render) -> wgpu::BufferUsages {
-        let is_uniform = render.has_buffer_binding(name, st::BufferType::Uniform);
-        let is_storage = render.has_buffer_binding(name, st::BufferType::Storage);
+        let is_uniform = render.has_uniform_binding(name);
+        // let is_storage = render.has_buffer_binding(name, st::BufferType::Storage);
         let is_vertex = render.has_input_buffer(name);
         let is_index = render.has_index_buffer(name);
 
         let usages = wgpu::BufferUsages::COPY_DST;
         if is_uniform {
             usages |= wgpu::BufferUsages::UNIFORM;
-        }
-        if is_storage {
-            usages |= wgpu::BufferUsages::STORAGE;
         }
         if is_vertex {
             usages |= wgpu::BufferUsages::VERTEX;
@@ -227,6 +244,29 @@ impl Texture {
     }
 }
 
+struct Sampler(wgpu::Sampler);
+
+impl Sampler {
+    pub fn new(handle: wgpu::Sampler) -> Self {
+        Self(handle)
+    }
+
+    pub fn filter_mode(sampler_type: st::SamplerType) -> wgpu::FilterMode {
+        match sampler_type {
+            st::SamplerType::Filter => wgpu::FilterMode::Linear,
+            st::SamplerType::NonFilter => wgpu::FilterMode::Nearest,
+            st::SamplerType::Depth => wgpu::FilterMode::Nearest,
+        }
+    }
+
+    pub fn compare(sampler_type: st::SamplerType) -> Option<wgpu::CompareFunction> {
+        match sampler_type {
+            st::SamplerType::Filter | st::SamplerType::NonFilter => None,
+            st::SamplerType::Depth => Some(wgpu::CompareFunction::Less),
+        }
+    }
+}
+
 struct BindGroup {
     layout: wgpu::BindGroupLayout,
     bind_group: wgpu::BindGroup,
@@ -237,76 +277,76 @@ impl BindGroup {
         Self { layout, bind_group }
     }
 
-    pub fn layout_entry(
-        index: u32,
-        stage: st::ShaderStage,
-        binding_info: &st::BindingInfo,
-    ) -> wgpu::BindGroupLayoutEntry {
-        let binding_type = match binding_info {
-            st::BindingInfo::Buffer(buffer_type) => Self::buffer_binding_type(*buffer_type),
-            st::BindingInfo::Texture(texture_type, filterable) => {
-                Self::texture_binding_type(*texture_type, *filterable)
-            }
-            st::BindingInfo::Sampler(sampler_type) => Self::sampler_binding_type(*sampler_type),
-        };
+    // pub fn layout_entry(
+    //     index: u32,
+    //     stage: st::ShaderStage,
+    //     binding_info: &st::BindingInfo,
+    // ) -> wgpu::BindGroupLayoutEntry {
+    //     let binding_type = match binding_info {
+    //         st::BindingInfo::Buffer(buffer_type) => Self::buffer_binding_type(*buffer_type),
+    //         st::BindingInfo::Texture(texture_type, filterable) => {
+    //             Self::texture_binding_type(*texture_type, *filterable)
+    //         }
+    //         st::BindingInfo::Sampler(sampler_type) => Self::sampler_binding_type(*sampler_type),
+    //     };
 
-        let visibility = match stage {
-            st::ShaderStage::Vertex => wgpu::ShaderStages::VERTEX,
-            st::ShaderStage::Fragment => wgpu::ShaderStages::FRAGMENT,
-            st::ShaderStage::Both => wgpu::ShaderStages::VERTEX_FRAGMENT,
-        };
+    //     let visibility = match stage {
+    //         st::ShaderStage::Vertex => wgpu::ShaderStages::VERTEX,
+    //         st::ShaderStage::Fragment => wgpu::ShaderStages::FRAGMENT,
+    //         st::ShaderStage::Both => wgpu::ShaderStages::VERTEX_FRAGMENT,
+    //     };
 
-        wgpu::BindGroupLayoutEntry {
-            binding: index,
-            visibility,
-            ty: binding_type,
-            count: None,
-        }
-    }
+    //     wgpu::BindGroupLayoutEntry {
+    //         binding: index,
+    //         visibility,
+    //         ty: binding_type,
+    //         count: None,
+    //     }
+    // }
 
-    fn buffer_binding_type(buffer_type: st::BufferType) -> wgpu::BindingType {
-        let ty = match buffer_type {
-            st::BufferType::Uniform => wgpu::BufferBindingType::Uniform,
-            st::BufferType::Storage => wgpu::BufferBindingType::Storage { read_only: true },
-        };
-        wgpu::BindingType::Buffer {
-            ty,
-            has_dynamic_offset: false,
-            min_binding_size: None,
-        }
-    }
+    // fn buffer_binding_type(buffer_type: st::BufferType) -> wgpu::BindingType {
+    //     let ty = match buffer_type {
+    //         st::BufferType::Uniform => wgpu::BufferBindingType::Uniform,
+    //         st::BufferType::Storage => wgpu::BufferBindingType::Storage { read_only: true },
+    //     };
+    //     wgpu::BindingType::Buffer {
+    //         ty,
+    //         has_dynamic_offset: false,
+    //         min_binding_size: None,
+    //     }
+    // }
 
-    fn texture_binding_type(texture_type: st::TextureType, filterable: bool) -> wgpu::BindingType {
-        let sample_type = match texture_type {
-            st::TextureType::Color { texel, .. } => match texel {
-                st::TexelType::Float(_) | st::TexelType::Snorm(_) | st::TexelType::Unorm(_) => {
-                    wgpu::TextureSampleType::Float { filterable }
-                }
-                st::TexelType::Sint(_) => wgpu::TextureSampleType::Sint,
-                st::TexelType::Uint(_) => wgpu::TextureSampleType::Uint,
-            },
-            st::TextureType::Depth => wgpu::TextureSampleType::Depth,
-        };
-        wgpu::BindingType::Texture {
-            sample_type,
-            view_dimension: wgpu::TextureViewDimension::D2,
-            multisampled: false,
-        }
-    }
+    // fn texture_binding_type(texture_type: st::TextureType, filterable: bool) -> wgpu::BindingType {
+    //     let sample_type = match texture_type {
+    //         st::TextureType::Color { texel, .. } => match texel {
+    //             st::TexelType::Float(_) | st::TexelType::Snorm(_) | st::TexelType::Unorm(_) => {
+    //                 wgpu::TextureSampleType::Float { filterable }
+    //             }
+    //             st::TexelType::Sint(_) => wgpu::TextureSampleType::Sint,
+    //             st::TexelType::Uint(_) => wgpu::TextureSampleType::Uint,
+    //         },
+    //         st::TextureType::Depth => wgpu::TextureSampleType::Depth,
+    //     };
+    //     wgpu::BindingType::Texture {
+    //         sample_type,
+    //         view_dimension: wgpu::TextureViewDimension::D2,
+    //         multisampled: false,
+    //     }
+    // }
 
-    fn sampler_binding_type(sampler_type: st::SamplerType) -> wgpu::BindingType {
-        match sampler_type {
-            st::SamplerType::Color(true) => {
-                wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
-            }
-            st::SamplerType::Color(false) => {
-                wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering)
-            }
-            st::SamplerType::Color(true) => {
-                wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison)
-            }
-        }
-    }
+    // fn sampler_binding_type(sampler_type: st::SamplerType) -> wgpu::BindingType {
+    //     match sampler_type {
+    //         st::SamplerType::Color(true) => {
+    //             wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
+    //         }
+    //         st::SamplerType::Color(false) => {
+    //             wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering)
+    //         }
+    //         st::SamplerType::Color(true) => {
+    //             wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison)
+    //         }
+    //     }
+    // }
 }
 
 type RenderPipeline = wgpu::RenderPipeline;

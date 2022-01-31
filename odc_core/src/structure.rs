@@ -12,10 +12,10 @@ pub struct Render {
 }
 
 impl Render {
-    pub fn has_buffer_binding(&self, name: &str, typ: BufferType) -> bool {
+    pub fn has_uniform_binding(&self, name: &str) -> bool {
         self.bind_groups
             .iter()
-            .any(|(_, bg)| bg.has_buffer_with_type(name, typ))
+            .any(|(_, bg)| bg.has_uniform(name))
     }
 
     pub fn has_texture_binding(&self, name: &str) -> bool {
@@ -40,24 +40,8 @@ impl Render {
             .any(|(_, pipeline)| pipeline.has_index_buffer(name))
     }
 
-    pub fn bind_group_layout(&self, bind_group: &BindGroup) -> BindGroupLayout {
-        let mut bindings = Vec::with_capacity(bind_group.bindings.len());
-        for (stage, binding) in &bind_group.bindings {
-            let binding_info = self.get_binding_info(binding);
-            bindings.push((*stage, binding_info));
-        }
-        BindGroupLayout { bindings }
-    }
-
-    fn get_binding_info(&self, binding: &Binding) -> BindingInfo {
-        match binding {
-            Binding::Buffer(buffer_binding) => BindingInfo::Buffer(buffer_binding.typ),
-            Binding::Texture(texture_binding) => {
-                let texture = self.textures[&texture_binding.texture];
-                BindingInfo::Texture(texture.typ, texture_binding.filterable)
-            }
-            Binding::Sampler(sampler_binding) => BindingInfo::Sampler(sampler_binding.typ),
-        }
+    pub fn has_sampler(&self, sampler_type: SamplerType) -> bool {
+        self.bind_groups.iter().any(|(_, bg)| bg.has_sampler(sampler_type))
     }
 }
 
@@ -153,40 +137,28 @@ pub enum InputItemType {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BindGroupLayout {
-    pub bindings: Vec<(ShaderStage, BindingInfo)>,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BindingInfo {
-    Buffer(BufferType),
-    Texture(TextureType, Filterable),
-    Sampler(SamplerType),
-}
-
-pub type Filterable = bool;
-
-#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BindGroup {
-    pub bindings: Vec<(ShaderStage, Binding)>,
+    pub uniforms: Vec<(u32, UniformBinding)>,
+    pub textures: Vec<(u32, TextureBinding)>,
+    pub samplers: Vec<(u32, SamplerBinding)>,
 }
 
 impl BindGroup {
-    pub fn has_buffer_with_type(&self, name: &str, in_typ: BufferType) -> bool {
-        self.bindings.iter().any(|binding| {
-            if let Binding::Buffer(BufferBinding { typ, buffer, .. }) = binding.1 {
-                return name == buffer && typ == in_typ;
-            }
-            false
+    pub fn has_uniform(&self, name: &str) -> bool {
+        self.uniforms.iter().any(|binding| {
+            binding.1.buffer == name
         })
     }
 
     pub fn has_texture(&self, name: &str) -> bool {
-        self.bindings.iter().any(|binding| {
-            if let Binding::Texture(TextureBinding { texture, .. }) = binding.1 {
-                return name == texture;
-            }
-            false
+        self.textures.iter().any(|binding| {
+            binding.1.texture == name
+        })
+    }
+
+    pub fn has_sampler(&self, samplers_type: SamplerType) -> bool {
+        self.samplers.iter().any(|binding| {
+            binding.1.sampler_type == samplers_type
         })
     }
 }
@@ -199,24 +171,10 @@ pub enum ShaderStage {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Binding {
-    Buffer(BufferBinding),
-    Texture(TextureBinding),
-    Sampler(SamplerBinding),
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct BufferBinding {
+pub struct UniformBinding {
     pub buffer: String,
-    pub typ: BufferType,
     pub size: u64,
     pub offset: u64,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BufferType {
-    Uniform,
-    Storage,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -229,12 +187,13 @@ pub struct TextureBinding {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct SamplerBinding {
-    pub typ: SamplerType,
+    pub sampler_type: SamplerType,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum SamplerType {
-    Color(Filterable),
+    Filter,
+    NonFilter,
     Depth,
 }
 
