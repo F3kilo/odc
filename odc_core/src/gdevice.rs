@@ -1,8 +1,7 @@
 use std::borrow::Cow;
 use wgpu::{
-    Adapter, Buffer, BufferAddress, BufferDescriptor, BufferUsages, Device, DeviceDescriptor,
-    Instance, Limits, Queue, RequestAdapterOptions, ShaderModule, ShaderModuleDescriptor,
-    ShaderSource, Surface,
+    Adapter, Device, DeviceDescriptor, Instance, Limits, Queue, RequestAdapterOptions,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, Surface,
 };
 
 pub struct GfxDevice {

@@ -58,7 +58,7 @@ struct HandlesFactory<'a> {
 
 impl<'a> HandlesFactory<'a> {
     pub fn create_buffer(&self, name: &str, info: &st::Buffer) -> Buffer {
-        let mut usage = Buffer::find_usages(name, self.render);
+        let usage = Buffer::find_usages(name, self.render);
         let descriptor = wgpu::BufferDescriptor {
             label: Some(name),
             size: info.size,
@@ -69,7 +69,7 @@ impl<'a> HandlesFactory<'a> {
     }
 
     pub fn create_texture(&self, name: &str, info: &st::Texture) -> Texture {
-        let mut usage = Texture::find_usages(name, self.render);
+        let usage = Texture::find_usages(name, self.render);
 
         let size = wgpu::Extent3d {
             width: info.size.x as _,
@@ -118,11 +118,43 @@ impl<'a> HandlesFactory<'a> {
         &self,
         name: &str,
         info: &st::BindGroup,
-        _resources: &Resources,
+        resources: &Resources,
     ) -> BindGroup {
-        let _layout = self.create_bind_group_layout(name, info);
+        let layout = self.create_bind_group_layout(name, info);
 
-        todo!()
+        let views: HashMap<_, _> = info
+            .textures
+            .iter()
+            .map(|binding| {
+                let texture = &resources.textures[&binding.info.texture];
+                (&binding.info.texture, texture.create_view())
+            })
+            .collect();
+
+        let mut entries = Vec::with_capacity(info.bindings_count());
+        entries.extend(info.uniforms.iter().map(|binding| {
+            let buffer = &resources.buffers[&binding.info.buffer];
+            BindGroup::uniform_entry(binding, buffer)
+        }));
+        entries.extend(
+            info.textures
+                .iter()
+                .map(|binding| BindGroup::texture_entry(binding, &views[&binding.info.texture])),
+        );
+        entries.extend(info.samplers.iter().map(|binding| {
+            let sampler = &resources.samplers[&binding.info.sampler_type];
+            BindGroup::sampler_entry(binding, sampler)
+        }));
+
+        let descriptor = wgpu::BindGroupDescriptor {
+            label: Some(name),
+            layout: &layout,
+            entries: &entries,
+        };
+
+        let bind_group = self.device.create_bind_group(&descriptor);
+
+        BindGroup::new(layout, bind_group)
     }
 
     pub fn create_bind_group_layout(
@@ -325,6 +357,10 @@ impl Texture {
             (Texel::Unorm(NormBytes::Two), Count::Four) => Format::Rgba16Unorm,
         }
     }
+
+    pub fn create_view(&self) -> wgpu::TextureView {
+        self.0.create_view(&Default::default())
+    }
 }
 
 struct Sampler(wgpu::Sampler);
@@ -406,6 +442,42 @@ impl BindGroup {
             visibility: Self::layout_entry_visibility(binding.shader_stages),
             ty: wgpu::BindingType::Sampler(Sampler::binding_type(binding.info.sampler_type)),
             count: None,
+        }
+    }
+
+    pub fn uniform_entry<'a>(
+        binding: &st::Binding<st::UniformInfo>,
+        buffer: &'a Buffer,
+    ) -> wgpu::BindGroupEntry<'a> {
+        let buffer_binding = wgpu::BufferBinding {
+            buffer: &buffer.0,
+            offset: binding.info.offset,
+            size: NonZeroU64::new(binding.info.size),
+        };
+
+        wgpu::BindGroupEntry {
+            binding: binding.index,
+            resource: wgpu::BindingResource::Buffer(buffer_binding),
+        }
+    }
+
+    pub fn texture_entry<'a>(
+        binding: &st::Binding<st::TextureInfo>,
+        texture_view: &'a wgpu::TextureView,
+    ) -> wgpu::BindGroupEntry<'a> {
+        wgpu::BindGroupEntry {
+            binding: binding.index,
+            resource: wgpu::BindingResource::TextureView(texture_view),
+        }
+    }
+
+    pub fn sampler_entry<'a>(
+        binding: &st::Binding<st::SamplerInfo>,
+        sampler: &'a Sampler,
+    ) -> wgpu::BindGroupEntry<'a> {
+        wgpu::BindGroupEntry {
+            binding: binding.index,
+            resource: wgpu::BindingResource::Sampler(&sampler.0),
         }
     }
 
