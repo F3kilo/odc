@@ -1,36 +1,35 @@
 use crate::gdevice::GfxDevice;
-use structure as st;
-use structure::Size2d;
+use model as st;
+use model::Size2d;
 use raw_window_handle::HasRawWindowHandle;
-use render::RenderData;
+use res::Resources;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
 
 mod gdevice;
-mod render;
-mod structure;
+pub mod model;
+mod res;
 mod swapchain;
 
 pub struct OdcCore {
     device: GfxDevice,
     swapchain: Swapchain,
-    data: RenderData,
+    resources: Resources,
 }
 
 impl OdcCore {
-    pub fn with_window(render: &st::Render, window: WindowInfo) -> Self {
+    pub fn with_window_support(model: st::RenderModel, window: &impl HasRawWindowHandle) -> Self {
         let instance = Instance::new(Backends::all());
-        let surface = unsafe { instance.create_surface(&window.handle) };
+        let surface = unsafe { instance.create_surface(window) };
         let device = GfxDevice::new(&instance, Some(&surface));
         let swapchain = Swapchain::new(&device, surface);
-
-        let data = RenderData::from_structure(&device.device, render);
+        let resources = Resources::new(&device.device, &model);
 
         Self {
             device,
             swapchain,
-            data,
+            resources,
         }
     }
 }

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Render {
-    pub pass_tree: HashMap<String, Vec<String>>,
+pub struct RenderModel {
+    pub stages: Stages,
     pub passes: HashMap<String, Pass>,
     pub pipelines: HashMap<String, RenderPipeline>,
     pub bind_groups: HashMap<String, BindGroup>,
@@ -11,7 +11,7 @@ pub struct Render {
     pub buffers: HashMap<String, Buffer>,
 }
 
-impl Render {
+impl RenderModel {
     pub fn has_uniform_binding(&self, name: &str) -> bool {
         self.bind_groups.iter().any(|(_, bg)| bg.has_uniform(name))
     }
@@ -46,6 +46,12 @@ impl Render {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Stages(pub Vec<PassGroup>);
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct PassGroup(pub Vec<String>);
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Pass {
     pub pipelines: Vec<String>,
     pub attachments: Vec<Attachment>,
@@ -55,13 +61,13 @@ impl Pass {
     pub fn has_texture_attachment(&self, name: &str) -> bool {
         self.attachments
             .iter()
-            .any(|attachment| name == attachment.texture)
+            .any(|attachment| name == attachment.target)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Attachment {
-    pub texture: String,
+    pub target: String,
     pub size: Size2d,
     pub offset: Size2d,
 }
@@ -154,7 +160,7 @@ pub enum InputType {
     PerInstance,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct BindGroup {
     pub uniforms: Vec<Binding<UniformInfo>>,
     pub textures: Vec<Binding<TextureInfo>>,
@@ -231,7 +237,7 @@ pub struct Buffer {
     pub size: u64,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 pub struct Size2d {
     pub x: u64,
     pub y: u64,

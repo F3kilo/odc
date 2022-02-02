@@ -8,7 +8,6 @@ pub struct RenderData {
     resources: Resources,
     bind_groups: HashMap<String, BindGroup>,
     render_pipelines: HashMap<String, RenderPipeline>,
-    passes: HashMap<String, Pass>,
 }
 
 impl RenderData {
@@ -57,7 +56,6 @@ impl RenderData {
             resources,
             bind_groups,
             render_pipelines,
-            passes: Default::default(),
         }
     }
 }
