@@ -1,5 +1,4 @@
 use crate::model as mdl;
-use core::num::NonZeroU64;
 use std::collections::HashMap;
 
 pub struct Resources {
@@ -43,6 +42,10 @@ impl Resources {
 
     pub fn raw_sampler(&self, typ: &mdl::SamplerType) -> &wgpu::Sampler {
         &self.samplers[typ].0
+    }
+
+    pub fn texture_format(typ: mdl::TextureType) -> wgpu::TextureFormat {
+        Texture::find_format(typ)
     }
 }
 

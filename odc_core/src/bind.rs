@@ -23,6 +23,9 @@ impl BindGroups {
             Self {bind_groups}
     }
 
+    pub fn raw_layout(&self, name: &str) -> &wgpu::BindGroupLayout {
+        &self.bind_groups[name].layout
+    }
 }
 
 struct BindGroup {

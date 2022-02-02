@@ -4,6 +4,7 @@ use model::Size2d;
 use raw_window_handle::HasRawWindowHandle;
 use res::Resources;
 use bind::BindGroups;
+use pipelines::Pipelines;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
@@ -11,6 +12,7 @@ use wgpu::{Backends, Instance};
 mod gdevice;
 pub mod model;
 mod res;
+mod pipelines;
 mod bind;
 mod swapchain;
 
