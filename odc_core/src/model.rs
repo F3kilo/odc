@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct RenderModel {
     pub stages: Stages,
     pub passes: HashMap<String, Pass>,
@@ -51,7 +51,7 @@ pub struct Stages(pub Vec<PassGroup>);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PassGroup(pub Vec<String>);
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Pass {
     pub pipelines: Vec<String>,
     pub color_attachments: Vec<Attachment>,
@@ -73,11 +73,13 @@ impl Pass {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Attachment {
     pub target: AttachmentTarget,
     pub size: Size2d,
     pub offset: Size2d,
+    pub clear: Option<[f64; 4]>,
+    pub store: bool,
 }
 
 impl Attachment {

@@ -80,6 +80,8 @@ pub fn color_mesh_model() -> RenderModel {
     		target: AttachmentTarget::Window,
     		size: Size2d { x: 800, y: 600 },
     		offset: Size2d::default(),
+            clear: Some([0.0, 0.0, 0.0, 1.0]),
+            store: true,
     	}],
         depth_attachment: None,
     };

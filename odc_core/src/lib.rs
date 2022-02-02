@@ -1,6 +1,6 @@
-use bytemuck::Pod;
 use crate::gdevice::GfxDevice;
 use bind::BindGroups;
+use bytemuck::Pod;
 use model as mdl;
 use model::Size2d;
 use pipelines::Pipelines;
@@ -50,7 +50,8 @@ impl OdcCore {
 
     pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {
         let data = bytemuck::cast_slice(data);
-        self.resources.write_buffer(&self.device.queue, id, data, offset);
+        self.resources
+            .write_buffer(&self.device.queue, id, data, offset);
     }
 
     pub fn draw(&self, data: &[DrawData], ranges: &[Range<usize>]) {
@@ -93,15 +94,28 @@ impl OdcCore {
         let color_views = self.color_tagets_views(&info.color_attachments, window_texture);
         let attachments_iter = color_views.iter().zip(info.color_attachments.iter());
         let color_attachments: Vec<_> = attachments_iter
-            .map(|(view, _info)| wgpu::RenderPassColorAttachment {
-                view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::GREEN), // todo: from info
-                    store: true,
-                },
+            .map(|(view, info)| {
+                let load = match info.clear {
+                    Some(color) => wgpu::LoadOp::Clear(wgpu::Color {
+                        r: color[0],
+                        g: color[1],
+                        b: color[2],
+                        a: color[3],
+                    }),
+                    None => wgpu::LoadOp::Load,
+                };
+
+                wgpu::RenderPassColorAttachment {
+                    view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load,
+                        store: info.store,
+                    },
+                }
             })
             .collect();
+            
         // todo: depth attachment
         let descriptor = wgpu::RenderPassDescriptor {
             label: None,
@@ -116,7 +130,12 @@ impl OdcCore {
         }
     }
 
-    fn draw_pipeline<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, pipeline: &str, draw_data: &[DrawData]) {
+    fn draw_pipeline<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        pipeline: &str,
+        draw_data: &[DrawData],
+    ) {
         self.pipelines.bind(pass, pipeline);
         let pipeline_info = &self.model.pipelines[pipeline];
 
@@ -124,7 +143,8 @@ impl OdcCore {
             .bind_index_buffer(pass, &pipeline_info.index_buffer);
 
         for (i, input_buffer) in pipeline_info.input_buffers.iter().enumerate() {
-            self.resources.bind_input_buffer(pass, &input_buffer.buffer, i as _);
+            self.resources
+                .bind_input_buffer(pass, &input_buffer.buffer, i as _);
         }
 
         for (i, bind_group) in pipeline_info.bind_groups.iter().enumerate() {
