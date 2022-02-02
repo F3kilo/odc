@@ -11,6 +11,7 @@ impl Swapchain {
         let format = surface
             .get_preferred_format(&device.adapter)
             .expect("can't find suit surface format");
+        
         Self { surface, format }
     }
 

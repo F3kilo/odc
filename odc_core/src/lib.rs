@@ -21,6 +21,7 @@ pub struct OdcCore {
     swapchain: Swapchain,
     resources: Resources,
     bind_groups: BindGroups,
+    pipelines: Pipelines,
 }
 
 impl OdcCore {
@@ -31,12 +32,14 @@ impl OdcCore {
         let swapchain = Swapchain::new(&device, surface);
         let resources = Resources::new(&device.device, &model);
         let bind_groups = BindGroups::new(&device.device, &model, &resources);
+        let pipelines = Pipelines::new(&device.device, &model, &bind_groups, swapchain.format);
 
         Self {
             device,
             swapchain,
             resources,
             bind_groups,
+            pipelines,
         }
     }
 }

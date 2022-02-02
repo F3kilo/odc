@@ -57,8 +57,9 @@ pub fn color_mesh_model() -> RenderModel {
         input_type: InputType::PerVertex,
         stride: 32,
     };
+
     let shader = Shader {
-        path: "/examples/shaders/color_mesh.wgsl".into(),
+        path: "examples/shaders/color_mesh.wgsl".into(),
         vs_main: "vs_main".into(),
         fs_main: "fs_main".into(),
     };

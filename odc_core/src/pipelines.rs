@@ -1,6 +1,6 @@
 use crate::bind::BindGroups;
-use crate::res::Resources;
 use crate::model as mdl;
+use crate::res::Resources;
 use std::collections::HashMap;
 use std::fs;
 
@@ -11,14 +11,19 @@ pub struct Pipelines {
 impl Pipelines {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn new(device: &wgpu::Device, model: &mdl::RenderModel, bind_groups: &BindGroups) -> Self {
-        let factory = HandlesFactory { device, model };
+    pub fn new(
+        device: &wgpu::Device,
+        model: &mdl::RenderModel,
+        bind_groups: &BindGroups,
+        window_format: wgpu::TextureFormat,
+    ) -> Self {
+        let factory = HandlesFactory { device, model, window_format };
 
         let render = model
             .pipelines
             .iter()
             .map(|(name, item)| {
-                let pipeline = factory.create_pipeline(name, item, &bind_groups);
+                let pipeline = factory.create_pipeline(name, item, bind_groups);
                 (name.clone(), pipeline)
             })
             .collect();
@@ -120,6 +125,7 @@ impl InputBufferLayout {
 struct HandlesFactory<'a> {
     device: &'a wgpu::Device,
     model: &'a mdl::RenderModel,
+    window_format: wgpu::TextureFormat,
 }
 
 impl<'a> HandlesFactory<'a> {
@@ -217,9 +223,12 @@ impl<'a> HandlesFactory<'a> {
                     .attachments
                     .iter()
                     .map(|attachment| {
-                        let texture = &self.model.textures[&attachment.target];
+                        let format = match self.model.textures.get(&attachment.target) {
+                        	Some(tex) => Resources::texture_format(tex.typ),
+                        	None => self.window_format,
+                        };
                         wgpu::ColorTargetState {
-                            format: Resources::texture_format(texture.typ),
+                            format,
                             blend: None,
                             write_mask: Default::default(),
                         }
