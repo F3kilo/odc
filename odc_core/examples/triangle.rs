@@ -1,8 +1,9 @@
 mod common;
 mod models;
 
+use std::ops::Range;
 use common::Example;
-use odc_core::{OdcCore, model::RenderModel};
+use odc_core::{OdcCore, model::RenderModel, DrawData};
 
 struct Triangle;
 
@@ -29,15 +30,15 @@ impl Example for Triangle {
 
     fn update(&mut self, _renderer: &OdcCore) {}
 
-    // fn draw_info(&self) -> Vec<(u64, Vec<DrawData>)> {
-    //     let draw = DrawData {
-    //         indices: 0..3,
-    //         base_vertex: 0,
-    //         instances: 0..1,
-    //     };
+    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>) {
+        let draw = DrawData {
+            indices: 0..3,
+            base_vertex: 0,
+            instances: 0..1,
+        };
 
-    //     vec![(0, vec![draw])]
-    // }
+        (vec![draw], vec![0..1])
+    }
 }
 
 fn main() {

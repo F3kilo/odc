@@ -17,12 +17,10 @@ struct VertexOutput {
 };
 
 [[stage(vertex)]]
-fn vs_main(vertex: VertexInput) -> VertexOutput {
-    let position = vec4<f32>(vertex.position.xyz, 1.0);
-    
-    let world_transform = render_info.world;
-    let world_position = world_transform * position;
-    let screen_position = render_info.view_proj * world_position;
+fn vs_main(vertex: VertexInput, [[builtin(vertex_index)]] in_vertex_index: u32) -> VertexOutput {
+    let x = f32(i32(in_vertex_index) - 1);
+    let y = f32(i32(in_vertex_index & 1u) * 2 - 1);
+    let screen_position = vec4<f32>(x, y, 0.0, 1.0);
     
     return VertexOutput(screen_position, vertex.color);
 }

@@ -47,6 +47,16 @@ impl Resources {
     pub fn texture_format(typ: mdl::TextureType) -> wgpu::TextureFormat {
         Texture::find_format(typ)
     }
+
+    pub fn bind_input_buffer<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, buffer: &str, index: u32) {
+        let buffer = &self.buffers[buffer].0;
+        pass.set_vertex_buffer(index, buffer.slice(..));
+    }
+
+    pub fn bind_index_buffer<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, buffer: &str) {
+        let buffer = &self.buffers[buffer].0;
+        pass.set_index_buffer(buffer.slice(..), wgpu::IndexFormat::Uint32);
+    }
 }
 
 struct Buffer(wgpu::Buffer);
@@ -79,8 +89,6 @@ impl Buffer {
 struct Texture(wgpu::Texture);
 
 impl Texture {
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-
     pub fn new(handle: wgpu::Texture) -> Self {
         Self(handle)
     }
@@ -206,14 +214,6 @@ impl Sampler {
         match sampler_type {
             mdl::SamplerType::Filter | mdl::SamplerType::NonFilter => None,
             mdl::SamplerType::Depth => Some(wgpu::CompareFunction::Less),
-        }
-    }
-
-    pub fn binding_type(sampler_type: mdl::SamplerType) -> wgpu::SamplerBindingType {
-        match sampler_type {
-            mdl::SamplerType::Filter => wgpu::SamplerBindingType::Filtering,
-            mdl::SamplerType::NonFilter => wgpu::SamplerBindingType::NonFiltering,
-            mdl::SamplerType::Depth => wgpu::SamplerBindingType::Comparison,
         }
     }
 }

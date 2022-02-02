@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
 use bytemuck::{Pod, Zeroable};
+use fps_counter::FPSCounter;
 use gltf::{buffer, Accessor, Semantic};
-use odc_core::{model::RenderModel, OdcCore};
+use odc_core::{DrawData, OdcCore, WindowInfo, };
+use odc_core::model::{RenderModel, Size2d};
 use std::mem;
+use std::ops::Range;
 use std::path::Path;
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -89,16 +92,20 @@ pub trait Example {
     fn render_model() -> RenderModel;
     fn init(&mut self, renderer: &OdcCore);
     fn update(&mut self, renderer: &OdcCore);
-    // fn draw_info(&self) -> Vec<(u64, Vec<DrawData>)>;
+    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>);
 }
 
 pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
+    let window_info = WindowInfo {
+        handle: &window,
+        size: Size2d { x: 800, y: 600 },
+    };
 
-    let renderer = OdcCore::with_window_support(E::render_model(), &window);
-    // let mut fps_counter = FPSCounter::new();
+    let renderer = OdcCore::with_window_support(E::render_model(), &window_info);
+    let mut fps_counter = FPSCounter::new();
 
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
@@ -109,12 +116,10 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                 _ => {}
             },
             Event::MainEventsCleared => {
-                // let to_draw = ex.draw_info();
-                // let draw_map =
-                //     HashMap::from_iter(to_draw.iter().map(|(id, d)| (*id, d.as_slice())));
-                // renderer.render(&draw_map);
-                // let fps = fps_counter.tick();
-                // window.set_title(&format!("FPS: {}", fps));
+                let (data, ranges) = ex.draw_info();
+                renderer.draw(&data, &ranges);
+                let fps = fps_counter.tick();
+                window.set_title(&format!("FPS: {}", fps));
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

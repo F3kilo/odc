@@ -30,6 +30,11 @@ impl Pipelines {
 
         Self { render }
     }
+
+    pub fn bind<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, pipeline: &str) {
+    	let pipeline = &self.render[pipeline].0;
+    	pass.set_pipeline(pipeline);
+    }
 }
 
 struct RenderPipeline(wgpu::RenderPipeline);
@@ -220,12 +225,15 @@ impl<'a> HandlesFactory<'a> {
         for pass in self.model.passes.values() {
             if pass.pipelines.iter().any(|p| p == pipeline) {
                 return pass
-                    .attachments
+                    .color_attachments
                     .iter()
                     .map(|attachment| {
-                        let format = match self.model.textures.get(&attachment.target) {
-                        	Some(tex) => Resources::texture_format(tex.typ),
-                        	None => self.window_format,
+                        let format = match &attachment.target {
+                        	mdl::AttachmentTarget::Window => self.window_format,
+                        	mdl::AttachmentTarget::Texture(name) => {
+                        		let texture_type = self.model.textures[name].typ;
+                        		Resources::texture_format(texture_type)
+                        	}
                         };
                         wgpu::ColorTargetState {
                             format,

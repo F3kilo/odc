@@ -54,20 +54,54 @@ pub struct PassGroup(pub Vec<String>);
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Pass {
     pub pipelines: Vec<String>,
-    pub attachments: Vec<Attachment>,
+    pub color_attachments: Vec<Attachment>,
+    pub depth_attachment: Option<DepthAttachment>,
 }
 
 impl Pass {
     pub fn has_texture_attachment(&self, name: &str) -> bool {
-        self.attachments
+        let color_attachment = self
+            .color_attachments
             .iter()
-            .any(|attachment| name == attachment.target)
+            .any(|attachment| attachment.has_texture(name));
+
+        let depth_attachment = self.depth_attachment
+            .as_ref()
+            .map(|attachment| attachment.texture == name)
+            .unwrap_or(false);
+        color_attachment || depth_attachment
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Attachment {
-    pub target: String,
+    pub target: AttachmentTarget,
+    pub size: Size2d,
+    pub offset: Size2d,
+}
+
+impl Attachment {
+    pub fn has_texture(&self, name: &str) -> bool {
+        if let AttachmentTarget::Texture(tex) = &self.target {
+            return tex == name;
+        }
+        false
+    }
+
+    pub fn is_window(&self) -> bool {
+        matches!(self.target, AttachmentTarget::Window)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum AttachmentTarget {
+    Window,
+    Texture(String),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DepthAttachment {
+    pub texture: String,
     pub size: Size2d,
     pub offset: Size2d,
 }
@@ -93,10 +127,8 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct DepthOps {
-    texture: String,
-}
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
+pub struct DepthOps {}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Shader {

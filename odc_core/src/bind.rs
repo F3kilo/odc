@@ -26,16 +26,21 @@ impl BindGroups {
     pub fn raw_layout(&self, name: &str) -> &wgpu::BindGroupLayout {
         &self.bind_groups[name].layout
     }
+
+    pub fn bind<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, bind_group: &str, index: u32) {
+        let bind_group = &self.bind_groups[bind_group].handle;
+        pass.set_bind_group(index, bind_group, &[]);
+    }
 }
 
 struct BindGroup {
     layout: wgpu::BindGroupLayout,
-    bind_group: wgpu::BindGroup,
+    handle: wgpu::BindGroup,
 }
 
 impl BindGroup {
-    pub fn new(layout: wgpu::BindGroupLayout, bind_group: wgpu::BindGroup) -> Self {
-        Self { layout, bind_group }
+    pub fn new(layout: wgpu::BindGroupLayout, handle: wgpu::BindGroup) -> Self {
+        Self { layout, handle }
     }
 
     pub fn layout_entry_visibility(stages: mdl::ShaderStages) -> wgpu::ShaderStages {

@@ -76,11 +76,12 @@ pub fn color_mesh_model() -> RenderModel {
     let pass_name = "color_pass";
     let pass = Pass {
     	pipelines: vec![pipeline_name.into()],
-    	attachments: vec![Attachment {
-    		target: "window".into(),
+    	color_attachments: vec![Attachment {
+    		target: AttachmentTarget::Window,
     		size: Size2d { x: 800, y: 600 },
     		offset: Size2d::default(),
     	}],
+        depth_attachment: None,
     };
 
     let passes = HashMap::from_iter([(pass_name.into(), pass)]);
