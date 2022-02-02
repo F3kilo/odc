@@ -7,11 +7,11 @@ use std::mem;
 const MAT4_SIZE: usize = mem::size_of::<[[f32; 4]; 4]>();
 
 pub fn color_mesh_model() -> RenderModel {
-    let vertex_buffer_name = "vertex_buffer";
+    let vertex_buffer_name = "vertex";
     let vertex_buffer = Buffer { size: 2u64.pow(16) };
-    let index_buffer_name = "index_buffer";
+    let index_buffer_name = "index";
     let index_buffer = Buffer { size: 2u64.pow(16) };
-    let uniform_buffer_name = "uniform_buffer";
+    let uniform_buffer_name = "uniform";
     let uniform_size = MAT4_SIZE as u64 * 2;
     let uniform_buffer = Buffer { size: uniform_size };
 

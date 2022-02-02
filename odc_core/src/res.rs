@@ -57,6 +57,11 @@ impl Resources {
         let buffer = &self.buffers[buffer].0;
         pass.set_index_buffer(buffer.slice(..), wgpu::IndexFormat::Uint32);
     }
+
+    pub fn write_buffer(&self, queue: &wgpu::Queue, id: &str, data: &[u8], offset: u64) {
+        let buffer = &self.buffers[id].0;
+        queue.write_buffer(buffer, offset, data);
+    }
 }
 
 struct Buffer(wgpu::Buffer);

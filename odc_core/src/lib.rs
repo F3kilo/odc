@@ -1,3 +1,4 @@
+use bytemuck::Pod;
 use crate::gdevice::GfxDevice;
 use bind::BindGroups;
 use model as mdl;
@@ -45,6 +46,11 @@ impl OdcCore {
             pipelines,
             model,
         }
+    }
+
+    pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {
+        let data = bytemuck::cast_slice(data);
+        self.resources.write_buffer(&self.device.queue, id, data, offset);
     }
 
     pub fn draw(&self, data: &[DrawData], ranges: &[Range<usize>]) {
@@ -126,7 +132,6 @@ impl OdcCore {
         }
 
         for draw in draw_data {
-            // println!("draw with data: {:?}", draw);
             pass.draw_indexed(
                 draw.indices.clone(),
                 draw.base_vertex,
