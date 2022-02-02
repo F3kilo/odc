@@ -1,6 +1,6 @@
 use crate::model as mdl;
+use core::num::NonZeroU64;
 use std::collections::HashMap;
-
 
 pub struct Resources {
     buffers: HashMap<String, Buffer>,
@@ -31,6 +31,18 @@ impl Resources {
             textures,
             samplers,
         }
+    }
+
+    pub fn raw_buffer(&self, name: &str) -> &wgpu::Buffer {
+        &self.buffers[name].0
+    }
+
+    pub fn texture_view(&self, name: &str) -> wgpu::TextureView {
+        self.textures[name].create_view()
+    }
+
+    pub fn raw_sampler(&self, typ: &mdl::SamplerType) -> &wgpu::Sampler {
+        &self.samplers[typ].0
     }
 }
 

@@ -3,6 +3,7 @@ use model as st;
 use model::Size2d;
 use raw_window_handle::HasRawWindowHandle;
 use res::Resources;
+use bind::BindGroups;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
@@ -10,12 +11,14 @@ use wgpu::{Backends, Instance};
 mod gdevice;
 pub mod model;
 mod res;
+mod bind;
 mod swapchain;
 
 pub struct OdcCore {
     device: GfxDevice,
     swapchain: Swapchain,
     resources: Resources,
+    bind_groups: BindGroups,
 }
 
 impl OdcCore {
@@ -25,11 +28,13 @@ impl OdcCore {
         let device = GfxDevice::new(&instance, Some(&surface));
         let swapchain = Swapchain::new(&device, surface);
         let resources = Resources::new(&device.device, &model);
+        let bind_groups = BindGroups::new(&device.device, &model, &resources);
 
         Self {
             device,
             swapchain,
             resources,
+            bind_groups,
         }
     }
 }
