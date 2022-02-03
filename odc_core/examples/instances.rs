@@ -1,39 +1,52 @@
 mod common;
+mod models;
 
 use crate::common::Example;
 use glam::Mat4;
-use odc::{DrawData, Odc};
+use odc_core::{model::RenderModel, DrawData, OdcCore};
+use std::f32::consts::PI;
+use std::ops::Range;
+use std::time::Instant;
+use vp_cam::{Camera, CameraBuilder, Vec3};
 
-struct InstancesExample;
+fn main() {
+    let rotation = CameraMovement::default();
+    let camera = create_camera();
+    common::run_example(InstancesExample(camera, rotation))
+}
+
+struct InstancesExample(Camera, CameraMovement);
 
 impl Example for InstancesExample {
-    fn init(&mut self, renderer: &mut Odc) {
-        let material = renderer.create_material(&common::color_mesh_material_data().as_info());
-        renderer.insert_material(0, material);
+    fn render_model() -> RenderModel {
+        models::color_mesh_model()
+    }
 
+    fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = common::triangle_mesh();
-        renderer.write_vertices(vertex_data, 0);
-        renderer.write_indices(index_data, 0);
+        renderer.write_buffer("vertex", vertex_data, 0);
+        renderer.write_buffer("index", index_data, 0);
 
         let instances = get_instances();
-        renderer.write_instances(&[instances], 0);
+        renderer.write_buffer("instance", &[instances], 0);
     }
 
-    fn update(&mut self, renderer: &Odc) {
+    fn update(&mut self, renderer: &OdcCore) {
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
-        let view_proj = ident_transform;
-        renderer.write_uniform(&[world, view_proj], 0);
+        self.0.set_position(self.1.cam_position());
+        let view_proj = self.0.view_proj_transform();
+        renderer.write_buffer("uniform", &[world, view_proj], 0);
     }
 
-    fn draw_info(&self) -> Vec<(u64, Vec<DrawData>)> {
+    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>) {
         let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..256,
         };
 
-        vec![(0, vec![draw])]
+        (vec![draw], vec![0..1])
     }
 }
 
@@ -61,6 +74,39 @@ fn create_instance(x: usize, y: usize) -> Transform {
 
 type Transform = [[f32; 4]; 4];
 
-fn main() {
-    common::run_example(InstancesExample)
+fn create_camera() -> Camera {
+    let pos = [0.0, 0.0, -CameraMovement::RADIUS];
+    let target = [0.0; 3];
+    let up = [0.0, 1.0, 0.0];
+    CameraBuilder::default()
+        .look_at(pos, target, up)
+        // .orthographic(-5.0, 5.0, -5.0, 5.0, -5.0, 5.0)
+        .perspective(PI / 2.0, 4.0 / 3.0, 0.1, Some(10.0))
+        .build()
+}
+
+struct CameraMovement {
+    start: Instant,
+}
+
+impl Default for CameraMovement {
+    fn default() -> Self {
+        Self {
+            start: Instant::now(),
+        }
+    }
+}
+
+impl CameraMovement {
+    pub const RADIUS: f32 = 1.0;
+
+    pub fn cam_position(&self) -> Vec3 {
+        let elapsed = (Instant::now() - self.start).as_secs_f32();
+        let secs_per_cycle = 4.0;
+        let angle = ((2.0 * PI * elapsed) / secs_per_cycle) % (2.0 * PI);
+
+        let x = Self::RADIUS * angle.sin();
+        let y = Self::RADIUS * -angle.cos();
+        [x, y, -1.0]
+    }
 }

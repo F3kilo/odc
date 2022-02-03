@@ -48,6 +48,6 @@ fn main() {
 ```
 
 ## Next steps
-- Normals and lights.
-- External materials.
-- Refactor buffers writing.
+- Fix examples
+- Depth buffer
+- Resize window

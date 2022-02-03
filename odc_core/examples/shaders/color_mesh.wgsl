@@ -3,6 +3,13 @@ struct VertexInput {
     [[location(1)]] color: vec4<f32>;
 };
 
+struct InstanceInput {
+    [[location(2)]] transform_0: vec4<f32>;
+    [[location(3)]] transform_1: vec4<f32>;
+    [[location(4)]] transform_2: vec4<f32>;
+    [[location(5)]] transform_3: vec4<f32>;
+};
+
 struct RenderInfo {
     world: mat4x4<f32>;
     view_proj: mat4x4<f32>;
@@ -17,12 +24,19 @@ struct VertexOutput {
 };
 
 [[stage(vertex)]]
-fn vs_main(vertex: VertexInput) -> VertexOutput {
+fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     let position = vec4<f32>(vertex.position.xyz, 1.0);
     
-    let world_transform = render_info.world;
-    let world_position = position;
-    let screen_position = world_position;
+    let instance_transform = mat4x4<f32>(
+        instance.transform_0, 
+        instance.transform_1, 
+        instance.transform_2, 
+        instance.transform_3
+    );
+
+    let world_transform = render_info.world * instance_transform;
+    let world_position = world_transform * position;
+    let screen_position = render_info.view_proj * world_position;
     
     return VertexOutput(screen_position, vertex.color);
 }

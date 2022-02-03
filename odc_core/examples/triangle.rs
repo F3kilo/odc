@@ -14,19 +14,13 @@ impl Example for Triangle {
     }
 
     fn init(&mut self, renderer: &OdcCore) {
-        // let material = renderer.create_material(&common::color_mesh_material_data().as_info());
-        // renderer.insert_material(0, material);
-
         let (vertex_data, index_data) = common::triangle_mesh();
         renderer.write_buffer("vertex", vertex_data, 0);
         renderer.write_buffer("index", index_data, 0);
 
-        let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
-        // renderer.write_instances(&[ident_transform], 0);
-
-        let world = ident_transform;
-        let view_proj = ident_transform;
-        renderer.write_buffer("uniform", &[world, view_proj], 0);
+        let ident = Mat4::IDENTITY.to_cols_array_2d();
+        renderer.write_buffer("uniform", &[ident, ident], 0);
+        renderer.write_buffer("instance", &[ident], 0);
     }
 
     fn update(&mut self, _renderer: &OdcCore) {}
