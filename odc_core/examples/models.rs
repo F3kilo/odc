@@ -25,7 +25,14 @@ pub fn color_mesh_model() -> RenderModel {
         (uniform_buffer_name.into(), uniform_buffer),
     ]);
 
-    let textures = HashMap::new();
+    let window_size = Size2d { x: 800, y: 600 };
+
+    let depth_texture_name = "depth";
+    let depth_texture = Texture {
+        typ: TextureType::Depth,
+        size: window_size,
+    };
+    let textures = HashMap::from_iter([(depth_texture_name.into(), depth_texture)]);
 
     let uniform = Binding {
         index: 0,
@@ -102,21 +109,25 @@ pub fn color_mesh_model() -> RenderModel {
         index_buffer: index_buffer_name.into(),
         bind_groups: vec![bind_group_name.into()],
         shader,
-        depth: None,
+        depth: Some(DepthOps {}),
     };
     let pipelines = HashMap::from_iter([(pipeline_name.into(), pipeline)]);
 
     let pass_name = "color_pass";
     let pass = Pass {
-    	pipelines: vec![pipeline_name.into()],
-    	color_attachments: vec![Attachment {
-    		target: AttachmentTarget::Window,
-    		size: Size2d { x: 800, y: 600 },
-    		offset: Size2d::default(),
+        pipelines: vec![pipeline_name.into()],
+        color_attachments: vec![Attachment {
+            target: AttachmentTarget::Window,
+            size: window_size,
+            offset: Size2d::default(),
             clear: Some([0.0, 0.0, 0.0, 1.0]),
             store: true,
-    	}],
-        depth_attachment: None,
+        }],
+        depth_attachment: Some(DepthAttachment {
+            texture: depth_texture_name.into(),
+            size: window_size,
+            offset: Default::default(),
+        }),
     };
 
     let passes = HashMap::from_iter([(pass_name.into(), pass)]);

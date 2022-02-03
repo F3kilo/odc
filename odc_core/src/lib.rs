@@ -115,12 +115,27 @@ impl OdcCore {
                 }
             })
             .collect();
-            
-        // todo: depth attachment
+
+        let depth_view = info
+            .depth_attachment
+            .as_ref()
+            .map(|attachment| self.resources.texture_view(&attachment.texture));
+        let depth_attachment =
+            depth_view
+                .as_ref()
+                .map(|view| wgpu::RenderPassDepthStencilAttachment {
+                    view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                });
+
         let descriptor = wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &color_attachments,
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: depth_attachment,
         };
         let mut pass = encoder.begin_render_pass(&descriptor);
 

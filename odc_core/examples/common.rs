@@ -55,34 +55,30 @@ pub const TRIANGLE_VERTICES: [ColorVertex; 3] = [
 
 pub const TRIANGLE_INDICES: [u32; 3] = [0, 1, 2];
 
-// pub fn rectangle_mesh() -> (&'static [ColorVertex], &'static [u32]) {
-//     (&RECTANGLE_VERTICES, &RECTANGLE_INDICES)
-// }
+pub fn rectangle_mesh() -> (&'static [ColorVertex], &'static [u32]) {
+    (&RECTANGLE_VERTICES, &RECTANGLE_INDICES)
+}
 
-// pub const RECTANGLE_VERTICES: [ColorVertex; 4] = [
-//     ColorVertex {
-//         position: [-1.0, -1.0, 0.0, 1.0],
-//         normal: [-1.0, -1.0, 0.0, 1.0],
-//         color: [0.0, 1.0, 0.0, 1.0],
-//     },
-//     ColorVertex {
-//         position: [-1.0, 1.0, 0.0, 1.0],
-//         normal: [-1.0, 1.0, 0.0, 1.0],
-//         color: [1.0, 0.0, 0.0, 1.0],
-//     },
-//     ColorVertex {
-//         position: [1.0, 1.0, 0.0, 1.0],
-//         normal: [1.0, 1.0, 0.0, 1.0],
-//         color: [0.0, 0.0, 1.0, 1.0],
-//     },
-//     ColorVertex {
-//         position: [1.0, -1.0, 0.0, 1.0],
-//         normal: [1.0, -1.0, 0.0, 1.0],
-//         color: [0.0, 1.0, 1.0, 1.0],
-//     },
-// ];
+pub const RECTANGLE_VERTICES: [ColorVertex; 4] = [
+    ColorVertex {
+        position: [-1.0, -1.0, 0.0, 1.0],
+        color: [0.0, 1.0, 0.0, 1.0],
+    },
+    ColorVertex {
+        position: [-1.0, 1.0, 0.0, 1.0],
+        color: [1.0, 0.0, 0.0, 1.0],
+    },
+    ColorVertex {
+        position: [1.0, 1.0, 0.0, 1.0],
+        color: [0.0, 0.0, 1.0, 1.0],
+    },
+    ColorVertex {
+        position: [1.0, -1.0, 0.0, 1.0],
+        color: [0.0, 1.0, 1.0, 1.0],
+    },
+];
 
-// pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
+pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 pub trait Example {
     fn render_model() -> RenderModel;
