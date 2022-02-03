@@ -1,4 +1,4 @@
-use crate::{GfxDevice, Size2d};
+use crate::{mdl, GfxDevice};
 use wgpu::{PresentMode, Surface, SurfaceConfiguration, TextureFormat, TextureUsages};
 
 pub struct Swapchain {
@@ -15,7 +15,7 @@ impl Swapchain {
         Self { surface, format }
     }
 
-    pub fn resize(&self, device: &GfxDevice, size: Size2d) {
+    pub fn resize(&self, device: &GfxDevice, size: mdl::Size2d) {
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: self.format,

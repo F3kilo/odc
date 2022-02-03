@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -43,6 +43,26 @@ impl RenderModel {
             .iter()
             .any(|(_, bg)| bg.has_sampler(sampler_type))
     }
+
+    pub fn window_dependent_attachments(&self) -> HashSet<&str> {
+        let mut attachments = HashSet::new();
+
+        for pass in self.passes.values() {
+            if pass.has_window_attachment() {
+                for color_attachment in &pass.color_attachments {
+                    if let AttachmentTarget::Texture(texture_id) = &color_attachment.target {
+                        attachments.insert(texture_id.as_ref());
+                    }
+                }
+
+                if let Some(depth_attachment) = &pass.depth_attachment {
+                    attachments.insert(depth_attachment.texture.as_ref());
+                }
+            }
+        }
+
+        attachments
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -65,19 +85,24 @@ impl Pass {
             .iter()
             .any(|attachment| attachment.has_texture(name));
 
-        let depth_attachment = self.depth_attachment
+        let depth_attachment = self
+            .depth_attachment
             .as_ref()
             .map(|attachment| attachment.texture == name)
             .unwrap_or(false);
         color_attachment || depth_attachment
+    }
+
+    pub fn has_window_attachment(&self) -> bool {
+        self.color_attachments
+            .iter()
+            .any(|attachment| attachment.is_window())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Attachment {
     pub target: AttachmentTarget,
-    pub size: Size2d,
-    pub offset: Size2d,
     pub clear: Option<[f64; 4]>,
     pub store: bool,
 }
@@ -104,8 +129,6 @@ pub enum AttachmentTarget {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DepthAttachment {
     pub texture: String,
-    pub size: Size2d,
-    pub offset: Size2d,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -275,6 +298,12 @@ pub struct Buffer {
 pub struct Size2d {
     pub x: u64,
     pub y: u64,
+}
+
+impl Size2d {
+    pub fn is_zero(&self) -> bool {
+        self.x * self.y == 0
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

@@ -3,8 +3,8 @@
 use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
 use gltf::{buffer, Accessor, Semantic};
-use odc_core::{DrawData, OdcCore, WindowInfo, };
 use odc_core::model::{RenderModel, Size2d};
+use odc_core::{DrawData, OdcCore, WindowInfo};
 use std::mem;
 use std::ops::Range;
 use std::path::Path;
@@ -96,7 +96,7 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
         size: Size2d { x: 800, y: 600 },
     };
 
-    let renderer = OdcCore::with_window_support(E::render_model(), &window_info);
+    let mut renderer = OdcCore::with_window_support(E::render_model(), &window_info);
     let mut fps_counter = FPSCounter::new();
 
     event_loop.run(move |event, _, flow| {
@@ -107,6 +107,16 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                 StartCause::Poll => ex.update(&renderer),
                 _ => {}
             },
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
+                let size = Size2d {
+                    x: size.width as _,
+                    y: size.height as _,
+                };
+                renderer.resize_window(size);
+            }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();
                 renderer.draw(&data, &ranges);

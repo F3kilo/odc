@@ -2,7 +2,6 @@ use crate::gdevice::GfxDevice;
 use bind::BindGroups;
 use bytemuck::Pod;
 use model as mdl;
-use model::Size2d;
 use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
 use res::Resources;
@@ -52,6 +51,15 @@ impl OdcCore {
         let data = bytemuck::cast_slice(data);
         self.resources
             .write_buffer(&self.device.queue, id, data, offset);
+    }
+
+    pub fn resize_window(&mut self, new_size: mdl::Size2d) {
+        if new_size.is_zero() {
+            return
+        }
+
+        self.swapchain.resize(&self.device, new_size);
+        self.resize_followed_attachments(new_size);
     }
 
     pub fn draw(&self, data: &[DrawData], ranges: &[Range<usize>]) {
@@ -188,11 +196,19 @@ impl OdcCore {
             })
             .collect()
     }
+
+    fn resize_followed_attachments(&mut self, new_size: mdl::Size2d) {
+        let window_dependent_attachments = self.model.window_dependent_attachments();
+        for attachment in window_dependent_attachments {
+            self.resources
+                .resize_texture(&self.device.device, attachment, new_size)
+        }
+    }
 }
 
 pub struct WindowInfo<'a> {
     pub handle: &'a dyn HasRawWindowHandle,
-    pub size: Size2d,
+    pub size: mdl::Size2d,
 }
 
 #[derive(Debug)]

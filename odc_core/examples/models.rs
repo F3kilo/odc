@@ -118,15 +118,11 @@ pub fn color_mesh_model() -> RenderModel {
         pipelines: vec![pipeline_name.into()],
         color_attachments: vec![Attachment {
             target: AttachmentTarget::Window,
-            size: window_size,
-            offset: Size2d::default(),
             clear: Some([0.0, 0.0, 0.0, 1.0]),
             store: true,
         }],
         depth_attachment: Some(DepthAttachment {
             texture: depth_texture_name.into(),
-            size: window_size,
-            offset: Default::default(),
         }),
     };
 

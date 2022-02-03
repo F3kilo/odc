@@ -48,7 +48,12 @@ impl Resources {
         Texture::find_format(typ)
     }
 
-    pub fn bind_input_buffer<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, buffer: &str, index: u32) {
+    pub fn bind_input_buffer<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        buffer: &str,
+        index: u32,
+    ) {
         let buffer = &self.buffers[buffer].0;
         pass.set_vertex_buffer(index, buffer.slice(..));
     }
@@ -61,6 +66,37 @@ impl Resources {
     pub fn write_buffer(&self, queue: &wgpu::Queue, id: &str, data: &[u8], offset: u64) {
         let buffer = &self.buffers[id].0;
         queue.write_buffer(buffer, offset, data);
+    }
+
+    pub fn resize_texture(
+        &mut self,
+        device: &wgpu::Device,
+        texture_id: &str,
+        new_size: mdl::Size2d,
+    ) {
+        let texture = &self.textures[texture_id];
+
+        let size = wgpu::Extent3d {
+            width: new_size.x as _,
+            height: new_size.y as _,
+            depth_or_array_layers: 1,
+        };
+
+        let format = texture.format;
+        let usage = texture.usages;
+
+        let descriptor = wgpu::TextureDescriptor {
+            label: Some(texture_id),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage,
+        };
+        let raw_texture = device.create_texture(&descriptor);
+        let new_texture = Texture::new(raw_texture, usage, format);
+        self.textures.insert(texture_id.into(), new_texture);
     }
 }
 
@@ -91,11 +127,23 @@ impl Buffer {
     }
 }
 
-struct Texture(wgpu::Texture);
+struct Texture {
+    handle: wgpu::Texture,
+    usages: wgpu::TextureUsages,
+    format: wgpu::TextureFormat,
+}
 
 impl Texture {
-    pub fn new(handle: wgpu::Texture) -> Self {
-        Self(handle)
+    pub fn new(
+        handle: wgpu::Texture,
+        usages: wgpu::TextureUsages,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        Self {
+            handle,
+            usages,
+            format,
+        }
     }
 
     pub fn find_usages(name: &str, render: &mdl::RenderModel) -> wgpu::TextureUsages {
@@ -196,7 +244,7 @@ impl Texture {
     }
 
     pub fn create_view(&self) -> wgpu::TextureView {
-        self.0.create_view(&Default::default())
+        self.handle.create_view(&Default::default())
     }
 }
 
@@ -249,16 +297,19 @@ impl<'a> HandlesFactory<'a> {
             depth_or_array_layers: 1,
         };
 
+        let format = Texture::find_format(info.typ);
+
         let descriptor = wgpu::TextureDescriptor {
             label: Some(name),
             size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: Texture::find_format(info.typ),
+            format,
             usage,
         };
-        Texture::new(self.device.create_texture(&descriptor))
+
+        Texture::new(self.device.create_texture(&descriptor), usage, format)
     }
 
     pub fn create_samplers(&self) -> HashMap<mdl::SamplerType, Sampler> {
