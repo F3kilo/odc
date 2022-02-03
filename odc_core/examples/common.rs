@@ -91,12 +91,8 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
-    let window_info = WindowInfo {
-        handle: &window,
-        size: Size2d { x: 800, y: 600 },
-    };
 
-    let mut renderer = OdcCore::with_window_support(E::render_model(), &window_info);
+    let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
 
     event_loop.run(move |event, _, flow| {
@@ -115,7 +111,7 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     x: size.width as _,
                     y: size.height as _,
                 };
-                renderer.resize_window(size);
+                
             }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();

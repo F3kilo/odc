@@ -55,7 +55,7 @@ impl BindGroup {
         texture_type: mdl::TextureType,
         filterable: bool,
     ) -> wgpu::TextureSampleType {
-        match texture_type {
+        match texture_type { // TODO: replace with TextureFormat::sample_type
             mdl::TextureType::Color { texel, .. } => match texel {
                 mdl::TexelType::Float(_) | mdl::TexelType::Snorm(_) | mdl::TexelType::Unorm(_) => {
                     wgpu::TextureSampleType::Float { filterable }

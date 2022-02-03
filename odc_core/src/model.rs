@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -43,26 +43,6 @@ impl RenderModel {
             .iter()
             .any(|(_, bg)| bg.has_sampler(sampler_type))
     }
-
-    pub fn window_dependent_attachments(&self) -> HashSet<&str> {
-        let mut attachments = HashSet::new();
-
-        for pass in self.passes.values() {
-            if pass.has_window_attachment() {
-                for color_attachment in &pass.color_attachments {
-                    if let AttachmentTarget::Texture(texture_id) = &color_attachment.target {
-                        attachments.insert(texture_id.as_ref());
-                    }
-                }
-
-                if let Some(depth_attachment) = &pass.depth_attachment {
-                    attachments.insert(depth_attachment.texture.as_ref());
-                }
-            }
-        }
-
-        attachments
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -83,47 +63,21 @@ impl Pass {
         let color_attachment = self
             .color_attachments
             .iter()
-            .any(|attachment| attachment.has_texture(name));
+            .any(|attachment| attachment.texture == name);
 
         let depth_attachment = self
             .depth_attachment
-            .as_ref()
-            .map(|attachment| attachment.texture == name)
-            .unwrap_or(false);
-        color_attachment || depth_attachment
-    }
-
-    pub fn has_window_attachment(&self) -> bool {
-        self.color_attachments
             .iter()
-            .any(|attachment| attachment.is_window())
+            .any(|attachment| attachment.texture == name);
+        color_attachment || depth_attachment
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Attachment {
-    pub target: AttachmentTarget,
+    pub texture: String,
     pub clear: Option<[f64; 4]>,
     pub store: bool,
-}
-
-impl Attachment {
-    pub fn has_texture(&self, name: &str) -> bool {
-        if let AttachmentTarget::Texture(tex) = &self.target {
-            return tex == name;
-        }
-        false
-    }
-
-    pub fn is_window(&self) -> bool {
-        matches!(self.target, AttachmentTarget::Window)
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AttachmentTarget {
-    Window,
-    Texture(String),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -272,8 +226,6 @@ pub struct UniformInfo {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TextureInfo {
     pub texture: String,
-    pub size: Size2d,
-    pub offset: Size2d,
     pub filterable: bool,
 }
 

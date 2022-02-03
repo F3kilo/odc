@@ -15,9 +15,8 @@ impl Pipelines {
         device: &wgpu::Device,
         model: &mdl::RenderModel,
         bind_groups: &BindGroups,
-        window_format: wgpu::TextureFormat,
     ) -> Self {
-        let factory = HandlesFactory { device, model, window_format };
+        let factory = HandlesFactory { device, model };
 
         let render = model
             .pipelines
@@ -130,7 +129,6 @@ impl InputBufferLayout {
 struct HandlesFactory<'a> {
     device: &'a wgpu::Device,
     model: &'a mdl::RenderModel,
-    window_format: wgpu::TextureFormat,
 }
 
 impl<'a> HandlesFactory<'a> {
@@ -228,13 +226,8 @@ impl<'a> HandlesFactory<'a> {
                     .color_attachments
                     .iter()
                     .map(|attachment| {
-                        let format = match &attachment.target {
-                        	mdl::AttachmentTarget::Window => self.window_format,
-                        	mdl::AttachmentTarget::Texture(name) => {
-                        		let texture_type = self.model.textures[name].typ;
-                        		Resources::texture_format(texture_type)
-                        	}
-                        };
+                        let texture_type = self.model.textures[&attachment.texture].typ;
+                        let format = Resources::texture_format_by_type(texture_type);
                         wgpu::ColorTargetState {
                             format,
                             blend: None,

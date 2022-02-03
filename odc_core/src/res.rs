@@ -44,7 +44,11 @@ impl Resources {
         &self.samplers[typ].0
     }
 
-    pub fn texture_format(typ: mdl::TextureType) -> wgpu::TextureFormat {
+    pub fn texture_format(&self, id: &str) -> wgpu::TextureFormat {
+        self.textures[id].format
+    }
+
+    pub fn texture_format_by_type(typ: mdl::TextureType) -> wgpu::TextureFormat {
         Texture::find_format(typ)
     }
 

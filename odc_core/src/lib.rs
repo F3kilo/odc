@@ -8,43 +8,54 @@ use res::Resources;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
+use window::Window;
+use std::collections::HashMap;
+
 
 mod bind;
 mod gdevice;
+mod window;
 pub mod model;
 mod pipelines;
 mod res;
 mod swapchain;
 
 pub struct OdcCore {
+    instance: wgpu::Instance,
     device: GfxDevice,
-    swapchain: Swapchain,
     resources: Resources,
     bind_groups: BindGroups,
     pipelines: Pipelines,
     model: mdl::RenderModel,
+    windows: HashMap<String, Window>,
 }
 
 impl OdcCore {
-    pub fn with_window_support(model: mdl::RenderModel, window: &WindowInfo) -> Self {
+    pub fn with_window_support(model: mdl::RenderModel, window: &impl HasRawWindowHandle) -> Self {
         let instance = Instance::new(Backends::all());
-        let surface = unsafe { instance.create_surface(&window.handle) };
+        let surface = unsafe { instance.create_surface(window) };
         let device = GfxDevice::new(&instance, Some(&surface));
-        let swapchain = Swapchain::new(&device, surface);
         let resources = Resources::new(&device.device, &model);
         let bind_groups = BindGroups::new(&device.device, &model, &resources);
-        let pipelines = Pipelines::new(&device.device, &model, &bind_groups, swapchain.format);
-
-        swapchain.resize(&device, window.size);
+        let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
 
         Self {
+            instance,
             device,
-            swapchain,
             resources,
             bind_groups,
             pipelines,
             model,
+            windows: Default::default(),
         }
+    }
+
+    /// # Safety
+    /// Handle `window` MUST stay valid until `remove_window` call with same `source_texture_id`.
+    pub unsafe fn add_window(&mut self, source_texture_id: &str, window: &impl HasRawWindowHandle) {
+        let surface = unsafe { self.instance.create_surface(window) };
+        let swapchain = Swapchain::new(&self.device, surface);
+        let window = Window::new(&self.device.device, swapchain, &self.resources, source_texture_id);
     }
 
     pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {
@@ -53,23 +64,8 @@ impl OdcCore {
             .write_buffer(&self.device.queue, id, data, offset);
     }
 
-    pub fn resize_window(&mut self, new_size: mdl::Size2d) {
-        if new_size.is_zero() {
-            return
-        }
-
-        self.swapchain.resize(&self.device, new_size);
-        self.resize_followed_attachments(new_size);
-    }
-
     pub fn draw(&self, data: &[DrawData], ranges: &[Range<usize>]) {
         let mut data_per_pipeline = ranges.iter().cloned().map(|r| &data[r]);
-
-        let frame = match self.swapchain.surface.get_current_texture() {
-            Ok(f) => f,
-            Err(wgpu::SurfaceError::Outdated) => return,
-            e => e.unwrap(),
-        };
 
         let mut encoder = self
             .device
@@ -83,13 +79,11 @@ impl OdcCore {
                     pass_info,
                     &mut encoder,
                     &mut data_per_pipeline,
-                    &frame.texture,
                 )
             }
         }
 
         self.device.queue.submit([encoder.finish()]);
-        frame.present();
     }
 
     fn draw_pass<'a>(
@@ -97,9 +91,8 @@ impl OdcCore {
         info: &mdl::Pass,
         encoder: &mut wgpu::CommandEncoder,
         data: &mut impl Iterator<Item = &'a [DrawData]>,
-        window_texture: &wgpu::Texture,
     ) {
-        let color_views = self.color_tagets_views(&info.color_attachments, window_texture);
+        let color_views = self.color_tagets_views(&info.color_attachments);
         let attachments_iter = color_views.iter().zip(info.color_attachments.iter());
         let color_attachments: Vec<_> = attachments_iter
             .map(|(view, info)| {
@@ -186,23 +179,11 @@ impl OdcCore {
     fn color_tagets_views(
         &self,
         attachments: &[mdl::Attachment],
-        window_texture: &wgpu::Texture,
     ) -> Vec<wgpu::TextureView> {
         attachments
             .iter()
-            .map(|attachment| match &attachment.target {
-                mdl::AttachmentTarget::Texture(texture) => self.resources.texture_view(texture),
-                mdl::AttachmentTarget::Window => window_texture.create_view(&Default::default()),
-            })
+            .map(|attachment| self.resources.texture_view(&attachment.texture))
             .collect()
-    }
-
-    fn resize_followed_attachments(&mut self, new_size: mdl::Size2d) {
-        let window_dependent_attachments = self.model.window_dependent_attachments();
-        for attachment in window_dependent_attachments {
-            self.resources
-                .resize_texture(&self.device.device, attachment, new_size)
-        }
     }
 }
 

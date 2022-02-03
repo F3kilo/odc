@@ -27,12 +27,23 @@ pub fn color_mesh_model() -> RenderModel {
 
     let window_size = Size2d { x: 800, y: 600 };
 
+    let color_texture_name = "color";
+    let color_texture = Texture {
+        typ: TextureType::Color {
+            texel: TexelType::Unorm(BytesPerNormTexel::One),
+            texel_count: TexelCount::Four,
+        },
+        size: window_size,
+    };
     let depth_texture_name = "depth";
     let depth_texture = Texture {
         typ: TextureType::Depth,
         size: window_size,
     };
-    let textures = HashMap::from_iter([(depth_texture_name.into(), depth_texture)]);
+    let textures = HashMap::from_iter([
+        (color_texture_name.into(), color_texture),
+        (depth_texture_name.into(), depth_texture),
+    ]);
 
     let uniform = Binding {
         index: 0,
@@ -117,7 +128,7 @@ pub fn color_mesh_model() -> RenderModel {
     let pass = Pass {
         pipelines: vec![pipeline_name.into()],
         color_attachments: vec![Attachment {
-            target: AttachmentTarget::Window,
+            texture: color_texture_name.into(),
             clear: Some([0.0, 0.0, 0.0, 1.0]),
             store: true,
         }],
