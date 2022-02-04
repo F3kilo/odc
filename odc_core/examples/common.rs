@@ -128,7 +128,10 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => *flow = ControlFlow::Exit,
+            } => {
+                renderer.remove_window("color");
+                *flow = ControlFlow::Exit;
+            }
             _ => {}
         }
     });

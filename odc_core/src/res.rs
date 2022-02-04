@@ -40,8 +40,8 @@ impl Resources {
         self.textures[name].create_view()
     }
 
-    pub fn raw_sampler(&self, typ: &mdl::SamplerType) -> &wgpu::Sampler {
-        &self.samplers[typ].0
+    pub fn raw_sampler(&self, typ: mdl::SamplerType) -> &wgpu::Sampler {
+        &self.samplers[&typ].0
     }
 
     pub fn texture_format(&self, id: &str) -> wgpu::TextureFormat {
@@ -324,7 +324,7 @@ impl<'a> HandlesFactory<'a> {
         ];
         sampler_types
             .iter()
-            .filter(|typ| self.render.has_sampler(**typ))
+            // .filter(|typ| self.render.has_sampler(**typ))
             .map(|typ| {
                 let filter_mode = Sampler::filter_mode(*typ);
                 let compare = Sampler::compare(*typ);

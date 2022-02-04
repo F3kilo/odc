@@ -1,11 +1,10 @@
-use raw_window_handle::HasRawWindowHandle;
+use crate::model as mdl;
 use crate::{Resources, Swapchain};
-use crate::model::Size2d;
-
+use raw_window_handle::HasRawWindowHandle;
 
 pub struct WindowInfo<'a, Handle: HasRawWindowHandle> {
     pub handle: &'a Handle,
-    pub size: Size2d,
+    pub size: mdl::Size2d,
 }
 
 pub struct Window {
@@ -31,8 +30,7 @@ impl Window {
         });
         let pipeline = Self::create_pipeline(device, swapchain.format, pipeline_layout, source_id);
 
-        let view = resources.texture_view(source_id);
-        let bind_group = Self::create_bind_group(device, &layout, &view, source_id);
+        let bind_group = Self::create_bind_group(device, &layout, resources, source_id);
 
         Self {
             swapchain,
@@ -51,13 +49,13 @@ impl Window {
 
         let view = frame.texture.create_view(&Default::default());
         let attachment = wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: true,
-                    },
-                };
+            view: &view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                store: true,
+            },
+        };
 
         let descriptor = wgpu::RenderPassDescriptor {
             label: None,
@@ -149,18 +147,30 @@ impl Window {
     fn create_bind_group(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
-        view: &wgpu::TextureView,
+        resources: &Resources,
         name: &str,
     ) -> wgpu::BindGroup {
-        let entry = wgpu::BindGroupEntry {
+        let view = resources.texture_view(name);
+        let texture_entry = wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::TextureView(view),
+            resource: wgpu::BindingResource::TextureView(&view),
         };
-        let sampler_entry = 
+
+        let format = resources.texture_format(name);
+        let sampler_type = match format.describe().sample_type {
+            wgpu::TextureSampleType::Float { filterable: false } => mdl::SamplerType::NonFilter,
+            wgpu::TextureSampleType::Depth => mdl::SamplerType::Depth,
+            _ => mdl::SamplerType::Filter,
+        };
+        let sampler = resources.raw_sampler(sampler_type);
+        let sampler_entry = wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::Sampler(sampler),
+        };
         let descriptor = wgpu::BindGroupDescriptor {
             label: Some(name),
             layout,
-            entries: &[entry],
+            entries: &[texture_entry, sampler_entry],
         };
 
         device.create_bind_group(&descriptor)

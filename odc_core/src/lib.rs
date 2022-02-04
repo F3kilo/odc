@@ -37,7 +37,8 @@ impl OdcCore {
         let device = GfxDevice::new(&instance, Some(&surface));
         let resources = Resources::new(&device.device, &model);
         let bind_groups = BindGroups::new(&device.device, &model, &resources);
-        let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
+ let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
+
 
         Self {
             instance,
@@ -67,6 +68,10 @@ impl OdcCore {
         );
 
         self.windows.insert(source_texture_id.into(), window);
+    }
+
+    pub fn remove_window(&mut self, source_texture_id: &str) {
+        self.windows.remove(source_texture_id);
     }
 
     pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {

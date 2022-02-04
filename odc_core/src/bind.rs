@@ -158,7 +158,7 @@ impl<'a> HandlesFactory<'a> {
                 .map(|binding| BindGroup::texture_entry(binding, &views[&binding.info.texture])),
         );
         entries.extend(info.samplers.iter().map(|binding| {
-            let sampler = &resources.raw_sampler(&binding.info.sampler_type);
+            let sampler = &resources.raw_sampler(binding.info.sampler_type);
             BindGroup::sampler_entry(binding, sampler)
         }));
 

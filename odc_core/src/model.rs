@@ -17,7 +17,9 @@ impl RenderModel {
     }
 
     pub fn has_texture_binding(&self, name: &str) -> bool {
-        self.bind_groups.iter().any(|(_, bg)| bg.has_texture(name))
+        let in_bind_group = self.bind_groups.iter().any(|(_, bg)| bg.has_texture(name));
+        let in_window = self.textures[name].window_source;
+        in_bind_group | in_window
     }
 
     pub fn has_texture_attachment(&self, name: &str) -> bool {
@@ -262,6 +264,7 @@ impl Size2d {
 pub struct Texture {
     pub typ: TextureType,
     pub size: Size2d,
+    pub window_source: bool,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
