@@ -1,4 +1,12 @@
+use raw_window_handle::HasRawWindowHandle;
 use crate::{Resources, Swapchain};
+use crate::model::Size2d;
+
+
+pub struct WindowInfo<'a, Handle: HasRawWindowHandle> {
+    pub handle: &'a Handle,
+    pub size: Size2d,
+}
 
 pub struct Window {
     swapchain: Swapchain,
@@ -34,7 +42,36 @@ impl Window {
         }
     }
 
-    pub fn create_bind_group_layout(
+    pub fn render(&self, encoder: &mut wgpu::CommandEncoder) -> Option<wgpu::SurfaceTexture> {
+        let frame = match self.swapchain.surface.get_current_texture() {
+            Ok(f) => f,
+            Err(wgpu::SurfaceError::Outdated) => return None,
+            e => e.unwrap(),
+        };
+
+        let view = frame.texture.create_view(&Default::default());
+        let attachment = wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: true,
+                    },
+                };
+
+        let descriptor = wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[attachment],
+            depth_stencil_attachment: None,
+        };
+        let mut pass = encoder.begin_render_pass(&descriptor);
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.draw(0..3, 0..1);
+        Some(frame)
+    }
+
+    fn create_bind_group_layout(
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
         name: &str,
@@ -47,21 +84,28 @@ impl Window {
             multisampled: false,
         };
 
-        let entry = wgpu::BindGroupLayoutEntry {
+        let texture_entry = wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::FRAGMENT,
             ty,
             count: None,
         };
 
+        let sampler_entry = wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        };
+
         let descriptor = wgpu::BindGroupLayoutDescriptor {
             label: Some(name),
-            entries: &[entry],
+            entries: &[texture_entry, sampler_entry],
         };
         device.create_bind_group_layout(&descriptor)
     }
 
-    pub fn create_pipeline(
+    fn create_pipeline(
         device: &wgpu::Device,
         target_format: wgpu::TextureFormat,
         layout: wgpu::PipelineLayout,
@@ -102,7 +146,7 @@ impl Window {
         device.create_render_pipeline(&descriptor)
     }
 
-    pub fn create_bind_group(
+    fn create_bind_group(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
         view: &wgpu::TextureView,
@@ -112,7 +156,7 @@ impl Window {
             binding: 0,
             resource: wgpu::BindingResource::TextureView(view),
         };
-
+        let sampler_entry = 
         let descriptor = wgpu::BindGroupDescriptor {
             label: Some(name),
             layout,

@@ -91,10 +91,16 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
-
+    let window_info = WindowInfo {
+        handle: &window,
+        size: Size2d {
+            x: window.inner_size().width as _,
+            y: window.inner_size().height as _,
+        }
+    };
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
-
+    unsafe {renderer.add_window("color", window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -111,11 +117,11 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     x: size.width as _,
                     y: size.height as _,
                 };
-                
+                // todo: resize odc window
             }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();
-                renderer.draw(&data, &ranges);
+                renderer.draw(&data, ranges.into_iter());
                 let fps = fps_counter.tick();
                 window.set_title(&format!("FPS: {}", fps));
             }

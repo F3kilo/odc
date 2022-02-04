@@ -1,24 +1,24 @@
 use crate::gdevice::GfxDevice;
+pub use crate::window::WindowInfo;
 use bind::BindGroups;
 use bytemuck::Pod;
 use model as mdl;
 use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
 use res::Resources;
+use std::collections::HashMap;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
 use window::Window;
-use std::collections::HashMap;
-
 
 mod bind;
 mod gdevice;
-mod window;
 pub mod model;
 mod pipelines;
 mod res;
 mod swapchain;
+mod window;
 
 pub struct OdcCore {
     instance: wgpu::Instance,
@@ -52,10 +52,21 @@ impl OdcCore {
 
     /// # Safety
     /// Handle `window` MUST stay valid until `remove_window` call with same `source_texture_id`.
-    pub unsafe fn add_window(&mut self, source_texture_id: &str, window: &impl HasRawWindowHandle) {
-        let surface = unsafe { self.instance.create_surface(window) };
+    pub unsafe fn add_window<Handle>(&mut self, source_texture_id: &str, window: WindowInfo<Handle>)
+    where
+        Handle: HasRawWindowHandle,
+    {
+        let surface = self.instance.create_surface(&window.handle);
         let swapchain = Swapchain::new(&self.device, surface);
-        let window = Window::new(&self.device.device, swapchain, &self.resources, source_texture_id);
+        swapchain.resize(&self.device, window.size);
+        let window = Window::new(
+            &self.device.device,
+            swapchain,
+            &self.resources,
+            source_texture_id,
+        );
+
+        self.windows.insert(source_texture_id.into(), window);
     }
 
     pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {
@@ -64,8 +75,11 @@ impl OdcCore {
             .write_buffer(&self.device.queue, id, data, offset);
     }
 
-    pub fn draw(&self, data: &[DrawData], ranges: &[Range<usize>]) {
-        let mut data_per_pipeline = ranges.iter().cloned().map(|r| &data[r]);
+    pub fn draw<DataRanges>(&self, data: &[DrawData], ranges: DataRanges)
+    where
+        DataRanges: Iterator<Item = Range<usize>>,
+    {
+        let mut data_per_pipeline = ranges.map(|r| &data[r]);
 
         let mut encoder = self
             .device
@@ -75,15 +89,20 @@ impl OdcCore {
         for pass_group in &self.model.stages.0 {
             for pass in &pass_group.0 {
                 let pass_info = &self.model.passes[pass];
-                self.draw_pass(
-                    pass_info,
-                    &mut encoder,
-                    &mut data_per_pipeline,
-                )
+                self.draw_pass(pass_info, &mut encoder, &mut data_per_pipeline)
             }
         }
 
+        let window_frames: Vec<_> = self
+            .windows
+            .values()
+            .filter_map(|window| window.render(&mut encoder))
+            .collect();
+
         self.device.queue.submit([encoder.finish()]);
+        for frame in window_frames {
+            frame.present();
+        }
     }
 
     fn draw_pass<'a>(
@@ -176,20 +195,12 @@ impl OdcCore {
         }
     }
 
-    fn color_tagets_views(
-        &self,
-        attachments: &[mdl::Attachment],
-    ) -> Vec<wgpu::TextureView> {
+    fn color_tagets_views(&self, attachments: &[mdl::Attachment]) -> Vec<wgpu::TextureView> {
         attachments
             .iter()
             .map(|attachment| self.resources.texture_view(&attachment.texture))
             .collect()
     }
-}
-
-pub struct WindowInfo<'a> {
-    pub handle: &'a dyn HasRawWindowHandle,
-    pub size: mdl::Size2d,
 }
 
 #[derive(Debug)]
