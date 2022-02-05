@@ -58,8 +58,8 @@ impl OdcCore {
         Handle: HasRawWindowHandle,
     {
         let surface = self.instance.create_surface(&window.handle);
-        let swapchain = Swapchain::new(&self.device, surface);
-        swapchain.resize(&self.device, window.size);
+        let swapchain = Swapchain::new(surface, &self.device.adapter);
+        swapchain.resize(&self.device.device, window.size);
         let window = Window::new(
             &self.device.device,
             swapchain,
@@ -72,6 +72,13 @@ impl OdcCore {
 
     pub fn remove_window(&mut self, source_texture_id: &str) {
         self.windows.remove(source_texture_id);
+    }
+
+    pub fn resize_window(&mut self, source_texture_id: &str, size: mdl::Size2d) {
+        if size.is_zero() {
+            return
+        }
+        self.windows[source_texture_id].resize(&self.device.device, size)
     }
 
     pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {

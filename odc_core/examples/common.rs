@@ -117,7 +117,7 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     x: size.width as _,
                     y: size.height as _,
                 };
-                // todo: resize odc window
+                renderer.resize_window("color", size);
             }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();

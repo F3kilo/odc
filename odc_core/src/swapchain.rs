@@ -1,4 +1,4 @@
-use crate::{mdl, GfxDevice};
+use crate::mdl;
 use wgpu::{PresentMode, Surface, SurfaceConfiguration, TextureFormat, TextureUsages};
 
 pub struct Swapchain {
@@ -7,15 +7,15 @@ pub struct Swapchain {
 }
 
 impl Swapchain {
-    pub fn new(device: &GfxDevice, surface: Surface) -> Self {
+    pub fn new(surface: Surface, adapter: &wgpu::Adapter) -> Self {
         let format = surface
-            .get_preferred_format(&device.adapter)
+            .get_preferred_format(adapter)
             .expect("can't find suit surface format");
 
         Self { surface, format }
     }
 
-    pub fn resize(&self, device: &GfxDevice, size: mdl::Size2d) {
+    pub fn resize(&self, device: &wgpu::Device, size: mdl::Size2d) {
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: self.format,
@@ -24,6 +24,6 @@ impl Swapchain {
             present_mode: PresentMode::Mailbox,
         };
 
-        self.surface.configure(&device.device, &config);
+        self.surface.configure(&device, &config);
     }
 }

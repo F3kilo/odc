@@ -69,6 +69,10 @@ impl Window {
         Some(frame)
     }
 
+    pub fn resize(&self, device: &wgpu::Device, size: mdl::Size2d) {
+        self.swapchain.resize(device, size)
+    }
+
     fn create_bind_group_layout(
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
