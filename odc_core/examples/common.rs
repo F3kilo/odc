@@ -100,7 +100,8 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     };
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
-    unsafe {renderer.add_window("color", window_info) };
+    let window_source = "depth";
+    unsafe {renderer.add_window(window_source, window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -117,8 +118,8 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     x: size.width as _,
                     y: size.height as _,
                 };
-                renderer.resize_window("color", size);
-                renderer.resize_attachments("color", size);
+                renderer.resize_window(window_source, size);
+                renderer.resize_attachments(window_source, size);
             }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();

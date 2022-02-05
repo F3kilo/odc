@@ -52,6 +52,27 @@ impl Resources {
         Texture::find_format(typ)
     }
 
+    pub fn sampler_binding_type_from_format(
+        format: wgpu::TextureFormat,
+    ) -> wgpu::SamplerBindingType {
+        match format.describe().sample_type {
+            wgpu::TextureSampleType::Float { filterable: false } => {
+                wgpu::SamplerBindingType::NonFiltering
+            }
+            wgpu::TextureSampleType::Depth => wgpu::SamplerBindingType::NonFiltering,
+            _ => wgpu::SamplerBindingType::Filtering,
+        }
+    }
+
+    pub fn texture_sampler_type(&self, name: &str) -> mdl::SamplerType {
+        let format = self.textures[name].format;
+        match format.describe().sample_type {
+            wgpu::TextureSampleType::Float { filterable: false } => mdl::SamplerType::NonFilter,
+            wgpu::TextureSampleType::Depth => mdl::SamplerType::NonFilter,
+            _ => mdl::SamplerType::Filter,
+        }
+    }
+
     pub fn bind_input_buffer<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -270,7 +291,7 @@ impl Sampler {
     pub fn compare(sampler_type: mdl::SamplerType) -> Option<wgpu::CompareFunction> {
         match sampler_type {
             mdl::SamplerType::Filter | mdl::SamplerType::NonFilter => None,
-            mdl::SamplerType::Depth => Some(wgpu::CompareFunction::Less),
+            mdl::SamplerType::Depth => Some(wgpu::CompareFunction::Greater),
         }
     }
 }

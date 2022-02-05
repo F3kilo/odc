@@ -28,7 +28,7 @@ impl Window {
             bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
-        let pipeline = Self::create_pipeline(device, swapchain.format, pipeline_layout, source_id);
+        let pipeline = Self::create_pipeline(device, swapchain.format, pipeline_layout, resources, source_id);
 
         let bind_group = Self::create_bind_group(device, &layout, resources, source_id);
 
@@ -40,7 +40,12 @@ impl Window {
         }
     }
 
-    pub fn refresh_bind_group(&mut self, device: &wgpu::Device, resources: &Resources, source_id: &str) {
+    pub fn refresh_bind_group(
+        &mut self,
+        device: &wgpu::Device,
+        resources: &Resources,
+        source_id: &str,
+    ) {
         let bind_group = Self::create_bind_group(device, &self.layout, resources, source_id);
         self.bind_group = bind_group;
     }
@@ -84,7 +89,7 @@ impl Window {
         name: &str,
     ) -> wgpu::BindGroupLayout {
         let sample_type = texture_format.describe().sample_type;
-
+        println!("PipelineLayout sample type: {:?}", sample_type);
         let ty = wgpu::BindingType::Texture {
             sample_type,
             view_dimension: wgpu::TextureViewDimension::D2,
@@ -98,10 +103,11 @@ impl Window {
             count: None,
         };
 
+        let sampler_binding_type = Resources::sampler_binding_type_from_format(texture_format);
         let sampler_entry = wgpu::BindGroupLayoutEntry {
             binding: 1,
             visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            ty: wgpu::BindingType::Sampler(sampler_binding_type),
             count: None,
         };
 
@@ -116,9 +122,18 @@ impl Window {
         device: &wgpu::Device,
         target_format: wgpu::TextureFormat,
         layout: wgpu::PipelineLayout,
+        resources: &Resources,
         name: &str,
     ) -> wgpu::RenderPipeline {
-        let descriptor = wgpu::include_wgsl!("../data/shaders/window.wgsl");
+        let attachment_format = resources.texture_format(name);
+        let descriptor = match attachment_format.describe().sample_type {
+            wgpu::TextureSampleType::Depth => {
+                println!("using depth window shader");
+                wgpu::include_wgsl!("../data/shaders/window_depth.wgsl")
+            }
+            _ => wgpu::include_wgsl!("../data/shaders/window.wgsl"),
+        };
+
         let shader_module = device.create_shader_module(&descriptor);
 
         let vertex = wgpu::VertexState {
@@ -165,12 +180,8 @@ impl Window {
             resource: wgpu::BindingResource::TextureView(&view),
         };
 
-        let format = resources.texture_format(name);
-        let sampler_type = match format.describe().sample_type {
-            wgpu::TextureSampleType::Float { filterable: false } => mdl::SamplerType::NonFilter,
-            wgpu::TextureSampleType::Depth => mdl::SamplerType::Depth,
-            _ => mdl::SamplerType::Filter,
-        };
+        let sampler_type = resources.texture_sampler_type(name);
+        println!("using sampler type in window: {:?}", sampler_type);
         let sampler = resources.raw_sampler(sampler_type);
         let sampler_entry = wgpu::BindGroupEntry {
             binding: 1,

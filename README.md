@@ -40,7 +40,6 @@ fn main() {
 ```
 
 ## Next steps
-- Resize window
 - Sample type from texture format
 - Different layouts for differen source texture types for windows
 - Remove samplers from model

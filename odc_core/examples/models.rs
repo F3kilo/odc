@@ -40,7 +40,7 @@ pub fn color_mesh_model() -> RenderModel {
     let depth_texture = Texture {
         typ: TextureType::Depth,
         size: window_size,
-        window_source: false,
+        window_source: true,
     };
     let textures = HashMap::from_iter([
         (color_texture_name.into(), color_texture),
