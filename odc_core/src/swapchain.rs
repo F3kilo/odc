@@ -24,6 +24,6 @@ impl Swapchain {
             present_mode: PresentMode::Mailbox,
         };
 
-        self.surface.configure(&device, &config);
+        self.surface.configure(device, &config);
     }
 }

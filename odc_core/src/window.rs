@@ -40,6 +40,11 @@ impl Window {
         }
     }
 
+    pub fn refresh_bind_group(&mut self, device: &wgpu::Device, resources: &Resources, source_id: &str) {
+        let bind_group = Self::create_bind_group(device, &self.layout, resources, source_id);
+        self.bind_group = bind_group;
+    }
+
     pub fn render(&self, encoder: &mut wgpu::CommandEncoder) -> Option<wgpu::SurfaceTexture> {
         let frame = match self.swapchain.surface.get_current_texture() {
             Ok(f) => f,

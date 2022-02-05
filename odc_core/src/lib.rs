@@ -7,6 +7,7 @@ use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
 use res::Resources;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
@@ -79,6 +80,22 @@ impl OdcCore {
             return
         }
         self.windows[source_texture_id].resize(&self.device.device, size)
+    }
+
+    pub fn resize_attachments(&mut self, attachment_id: &str, size: mdl::Size2d) {
+        if size.is_zero() {
+            return;
+        }
+
+        let to_resize = self.model.connected_attachments(attachment_id);
+        for texture_id in to_resize {
+            self.resources.resize_texture(&self.device.device, texture_id, size);
+
+            if let Entry::Occupied(mut entry) = self.windows.entry(texture_id.into()) {
+                let window = entry.get_mut();
+                window.refresh_bind_group(&self.device.device, &self.resources, texture_id);
+            }
+        }
     }
 
     pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {

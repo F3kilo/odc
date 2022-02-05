@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -44,6 +44,29 @@ impl RenderModel {
         self.bind_groups
             .iter()
             .any(|(_, bg)| bg.has_sampler(sampler_type))
+    }
+
+    pub fn connected_attachments<'a>(&'a self, name: &'a str) -> HashSet<&'a str> {
+        let mut connected = HashSet::with_capacity(16);
+        connected.insert(name);
+        let mut prev_len = 0;
+
+        loop {
+            for pass in self.passes.values() {
+                if pass.has_texture_attachment(name) {
+                    let color_iter = pass.color_attachments.iter().map(|att| att.texture.as_str());
+                    let depth_iter = pass.depth_attachment.iter().map(|att| att.texture.as_str());
+                    connected.extend(color_iter.chain(depth_iter));
+                }
+            }
+
+            if connected.len() == prev_len {
+                break;
+            }
+            prev_len = connected.len();
+        }
+
+        connected
     }
 }
 

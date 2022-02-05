@@ -118,6 +118,7 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     y: size.height as _,
                 };
                 renderer.resize_window("color", size);
+                renderer.resize_attachments("color", size);
             }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();
