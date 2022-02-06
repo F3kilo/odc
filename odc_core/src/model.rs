@@ -9,6 +9,7 @@ pub struct RenderModel {
     pub bind_groups: HashMap<String, BindGroup>,
     pub textures: HashMap<String, Texture>,
     pub buffers: HashMap<String, Buffer>,
+    pub samplers: HashMap<String, Sampler>,
 }
 
 impl RenderModel {
@@ -40,10 +41,10 @@ impl RenderModel {
             .any(|(_, pipeline)| pipeline.has_index_buffer(name))
     }
 
-    pub fn has_sampler(&self, sampler_type: SamplerType) -> bool {
+    pub fn has_sampler(&self, name: &str) -> bool {
         self.bind_groups
             .iter()
-            .any(|(_, bg)| bg.has_sampler(sampler_type))
+            .any(|(_, bg)| bg.has_sampler(name))
     }
 
     pub fn connected_attachments<'a>(&'a self, name: &'a str) -> HashSet<&'a str> {
@@ -216,10 +217,10 @@ impl BindGroup {
             .any(|binding| binding.info.texture == name)
     }
 
-    pub fn has_sampler(&self, samplers_type: SamplerType) -> bool {
+    pub fn has_sampler(&self, name: &str) -> bool {
         self.samplers
             .iter()
-            .any(|binding| binding.info.sampler_type == samplers_type)
+            .any(|binding| binding.info.sampler == name)
     }
 
     pub fn bindings_count(&self) -> usize {
@@ -254,16 +255,9 @@ pub struct TextureInfo {
     pub filterable: bool,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SamplerInfo {
-    pub sampler_type: SamplerType,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum SamplerType {
-    Filter,
-    NonFilter,
-    Depth,
+    pub sampler: String,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -332,4 +326,38 @@ pub enum TexelCount {
     One,
     Two,
     Four,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Sampler {
+    NonFilter,
+    Filter(FilterMode),
+    Comparison(CompareMode),
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum FilterMode {
+    Linear,
+    Anisotropic(AnisotropyLevel)
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum AnisotropyLevel {
+    One,
+    Two,
+    Four,
+    Eight,
+    Sixteen,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum CompareMode {
+    Never,
+    Less,
+    Equal,
+    LessEqual,
+    Greater,
+    NotEqual,
+    GreaterEqual,
+    Always,
 }

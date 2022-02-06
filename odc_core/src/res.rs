@@ -1,29 +1,34 @@
+use std::num::NonZeroU8;
 use crate::model as mdl;
 use std::collections::HashMap;
 
 pub struct Resources {
     buffers: HashMap<String, Buffer>,
     textures: HashMap<String, Texture>,
-    samplers: HashMap<mdl::SamplerType, Sampler>,
+    samplers: HashMap<String, Sampler>,
 }
 
 impl Resources {
-    pub fn new(device: &wgpu::Device, render: &mdl::RenderModel) -> Self {
-        let factory = HandlesFactory { device, render };
+    pub fn new(device: &wgpu::Device, model: &mdl::RenderModel) -> Self {
+        let factory = HandlesFactory { device, model };
 
-        let buffers = render
+        let buffers = model
             .buffers
             .iter()
             .map(|(name, item)| (name.clone(), factory.create_buffer(name, item)))
             .collect();
 
-        let textures = render
+        let textures = model
             .textures
             .iter()
             .map(|(name, item)| (name.clone(), factory.create_texture(name, item)))
             .collect();
 
-        let samplers = factory.create_samplers();
+        let samplers = model
+            .samplers
+            .iter()
+            .map(|(name, item)| (name.clone(), factory.create_sampler(name, *item)))
+            .collect();
 
         Self {
             buffers,
@@ -40,8 +45,8 @@ impl Resources {
         self.textures[name].create_view()
     }
 
-    pub fn raw_sampler(&self, typ: mdl::SamplerType) -> &wgpu::Sampler {
-        &self.samplers[&typ].0
+    pub fn raw_sampler(&self, name: &str) -> &wgpu::Sampler {
+        &self.samplers[name].0
     }
 
     pub fn texture_format(&self, id: &str) -> wgpu::TextureFormat {
@@ -61,15 +66,6 @@ impl Resources {
             }
             wgpu::TextureSampleType::Depth => wgpu::SamplerBindingType::NonFiltering,
             _ => wgpu::SamplerBindingType::Filtering,
-        }
-    }
-
-    pub fn texture_sampler_type(&self, name: &str) -> mdl::SamplerType {
-        let format = self.textures[name].format;
-        match format.describe().sample_type {
-            wgpu::TextureSampleType::Float { filterable: false } => mdl::SamplerType::NonFilter,
-            wgpu::TextureSampleType::Depth => mdl::SamplerType::NonFilter,
-            _ => mdl::SamplerType::Filter,
         }
     }
 
@@ -280,30 +276,51 @@ impl Sampler {
         Self(handle)
     }
 
-    pub fn filter_mode(sampler_type: mdl::SamplerType) -> wgpu::FilterMode {
-        match sampler_type {
-            mdl::SamplerType::Filter => wgpu::FilterMode::Linear,
-            mdl::SamplerType::NonFilter => wgpu::FilterMode::Nearest,
-            mdl::SamplerType::Depth => wgpu::FilterMode::Nearest,
+    pub fn sampler_info(info: mdl::Sampler) -> (wgpu::FilterMode, Option<NonZeroU8>, Option<wgpu::CompareFunction>) {
+        match info {
+            mdl::Sampler::NonFilter => (wgpu::FilterMode::Nearest, None, None),
+            mdl::Sampler::Filter(mode) => (wgpu::FilterMode::Linear, Self::anisotropy_mode(mode), None),
+            mdl::Sampler::Comparison(mode) => (wgpu::FilterMode::Nearest, None, Some(Self::compare_mode(mode))),
         }
     }
 
-    pub fn compare(sampler_type: mdl::SamplerType) -> Option<wgpu::CompareFunction> {
-        match sampler_type {
-            mdl::SamplerType::Filter | mdl::SamplerType::NonFilter => None,
-            mdl::SamplerType::Depth => Some(wgpu::CompareFunction::Greater),
+    pub fn compare_mode(mode: mdl::CompareMode) -> wgpu::CompareFunction {
+        match mode {
+            mdl::CompareMode::Never => wgpu::CompareFunction::Never,
+            mdl::CompareMode::Less => wgpu::CompareFunction::Less,
+            mdl::CompareMode::Equal => wgpu::CompareFunction::Equal,
+            mdl::CompareMode::LessEqual => wgpu::CompareFunction::LessEqual,
+            mdl::CompareMode::Greater => wgpu::CompareFunction::Greater,
+            mdl::CompareMode::NotEqual => wgpu::CompareFunction::NotEqual,
+            mdl::CompareMode::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
+            mdl::CompareMode::Always => wgpu::CompareFunction::Always,
+        }
+    }
+
+    fn anisotropy_mode(mode: mdl::FilterMode) -> Option<NonZeroU8> {
+        let level = match mode {
+            mdl::FilterMode::Linear => return None,
+            mdl::FilterMode::Anisotropic(level) => level,
+        };
+
+        match level {
+            mdl::AnisotropyLevel::One => Some(NonZeroU8::new(1).unwrap()),
+            mdl::AnisotropyLevel::Two => Some(NonZeroU8::new(2).unwrap()),
+            mdl::AnisotropyLevel::Four => Some(NonZeroU8::new(4).unwrap()),
+            mdl::AnisotropyLevel::Eight => Some(NonZeroU8::new(8).unwrap()),
+            mdl::AnisotropyLevel::Sixteen => Some( NonZeroU8::new(16).unwrap()),
         }
     }
 }
 
 struct HandlesFactory<'a> {
     device: &'a wgpu::Device,
-    render: &'a mdl::RenderModel,
+    model: &'a mdl::RenderModel,
 }
 
 impl<'a> HandlesFactory<'a> {
     pub fn create_buffer(&self, name: &str, info: &mdl::Buffer) -> Buffer {
-        let usage = Buffer::find_usages(name, self.render);
+        let usage = Buffer::find_usages(name, self.model);
         let descriptor = wgpu::BufferDescriptor {
             label: Some(name),
             size: info.size,
@@ -314,7 +331,7 @@ impl<'a> HandlesFactory<'a> {
     }
 
     pub fn create_texture(&self, name: &str, info: &mdl::Texture) -> Texture {
-        let usage = Texture::find_usages(name, self.render);
+        let usage = Texture::find_usages(name, self.model);
 
         let size = wgpu::Extent3d {
             width: info.size.x as _,
@@ -337,28 +354,20 @@ impl<'a> HandlesFactory<'a> {
         Texture::new(self.device.create_texture(&descriptor), usage, format)
     }
 
-    pub fn create_samplers(&self) -> HashMap<mdl::SamplerType, Sampler> {
-        let sampler_types = [
-            mdl::SamplerType::Filter,
-            mdl::SamplerType::NonFilter,
-            mdl::SamplerType::Depth,
-        ];
-        sampler_types
-            .iter()
-            // .filter(|typ| self.render.has_sampler(**typ))
-            .map(|typ| {
-                let filter_mode = Sampler::filter_mode(*typ);
-                let compare = Sampler::compare(*typ);
+    pub fn create_sampler(&self, name: &str, info: mdl::Sampler) -> Sampler {
+        
+                let (filter, anisotropy, compare) = Sampler::sampler_info(info);
+
                 let descriptor = wgpu::SamplerDescriptor {
-                    mag_filter: filter_mode,
-                    min_filter: filter_mode,
-                    mipmap_filter: filter_mode,
+                    label: Some(name),
+                    mag_filter: filter,
+                    min_filter: filter,
+                    mipmap_filter: filter,
+                    anisotropy_clamp: anisotropy,
                     compare,
                     ..Default::default()
                 };
                 let sampler = self.device.create_sampler(&descriptor);
-                (*typ, Sampler::new(sampler))
-            })
-            .collect()
+                Sampler::new(sampler)
     }
 }

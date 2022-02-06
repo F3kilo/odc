@@ -67,25 +67,6 @@ impl BindGroup {
         }
     }
 
-    pub fn sampler_layout_entry(
-        binding: &mdl::Binding<mdl::SamplerInfo>,
-    ) -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
-            binding: binding.index,
-            visibility: Self::layout_entry_visibility(binding.shader_stages),
-            ty: wgpu::BindingType::Sampler(Self::sampler_binding_type(binding.info.sampler_type)),
-            count: None,
-        }
-    }
-
-    pub fn sampler_binding_type(sampler_type: mdl::SamplerType) -> wgpu::SamplerBindingType {
-        match sampler_type {
-            mdl::SamplerType::Filter => wgpu::SamplerBindingType::Filtering,
-            mdl::SamplerType::NonFilter => wgpu::SamplerBindingType::NonFiltering,
-            mdl::SamplerType::Depth => wgpu::SamplerBindingType::Comparison,
-        }
-    }
-
     pub fn uniform_entry<'a>(
         binding: &mdl::Binding<mdl::UniformInfo>,
         buffer: &'a wgpu::Buffer,
@@ -158,7 +139,7 @@ impl<'a> HandlesFactory<'a> {
                 .map(|binding| BindGroup::texture_entry(binding, &views[&binding.info.texture])),
         );
         entries.extend(info.samplers.iter().map(|binding| {
-            let sampler = &resources.raw_sampler(binding.info.sampler_type);
+            let sampler = &resources.raw_sampler(&binding.info.sampler);
             BindGroup::sampler_entry(binding, sampler)
         }));
 
@@ -181,7 +162,7 @@ impl<'a> HandlesFactory<'a> {
         let mut entries = Vec::with_capacity(info.bindings_count());
         entries.extend(self.uniform_entries(&info.uniforms));
         entries.extend(self.texture_entries(&info.textures));
-        entries.extend(info.samplers.iter().map(BindGroup::sampler_layout_entry));
+        entries.extend(self.sampler_entries(&info.samplers));
 
         let descriptor = wgpu::BindGroupLayoutDescriptor {
             label: Some(name),
@@ -240,5 +221,45 @@ impl<'a> HandlesFactory<'a> {
                 count: None,
             }
         })
+    }
+
+    fn sampler_entries(
+        &'a self,
+        bindings: &'a [mdl::Binding<mdl::SamplerInfo>],
+    ) -> impl Iterator<Item = wgpu::BindGroupLayoutEntry> + 'a
+    {
+        bindings.iter().map(|binding| {
+            let sampler_type = self.sampler_binding_type(&binding.info.sampler);
+            let ty = wgpu::BindingType::Sampler(sampler_type);
+
+            let visibility = BindGroup::layout_entry_visibility(binding.shader_stages);
+
+            wgpu::BindGroupLayoutEntry {
+                binding: binding.index,
+                visibility,
+                ty,
+                count: None,
+            }
+        })
+    }
+
+    pub fn sampler_layout_entry(
+        &self,
+        binding: &mdl::Binding<mdl::SamplerInfo>,
+    ) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding: binding.index,
+            visibility: BindGroup::layout_entry_visibility(binding.shader_stages),
+            ty: wgpu::BindingType::Sampler(self.sampler_binding_type(&binding.info.sampler)),
+            count: None,
+        }
+    }
+
+    pub fn sampler_binding_type(&self, name: &str) -> wgpu::SamplerBindingType {
+        match &self.model.samplers[name] {
+            mdl::Sampler::NonFilter => wgpu::SamplerBindingType::NonFiltering,
+            mdl::Sampler::Filter(_) => wgpu::SamplerBindingType::Filtering,
+            mdl::Sampler::Comparison(_) => wgpu::SamplerBindingType::Comparison,
+        }
     }
 }
