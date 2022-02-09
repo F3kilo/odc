@@ -1,11 +1,10 @@
 use crate::model as mdl;
 use crate::res::Resources;
-use std::collections::HashMap;
 use core::num::NonZeroU64;
-
+use std::collections::HashMap;
 
 pub struct BindGroups {
-    bind_groups: HashMap<String, BindGroup>
+    bind_groups: HashMap<String, BindGroup>,
 }
 
 impl BindGroups {
@@ -20,7 +19,7 @@ impl BindGroups {
                 (name.clone(), bind_group)
             })
             .collect();
-            Self {bind_groups}
+        Self { bind_groups }
     }
 
     pub fn raw_layout(&self, name: &str) -> &wgpu::BindGroupLayout {
@@ -55,7 +54,8 @@ impl BindGroup {
         texture_type: mdl::TextureType,
         filterable: bool,
     ) -> wgpu::TextureSampleType {
-        match texture_type { // TODO: replace with TextureFormat::sample_type
+        match texture_type {
+            // TODO: replace with TextureFormat::sample_type
             mdl::TextureType::Color { texel, .. } => match texel {
                 mdl::TexelType::Float(_) | mdl::TexelType::Snorm(_) | mdl::TexelType::Unorm(_) => {
                     wgpu::TextureSampleType::Float { filterable }
@@ -103,7 +103,6 @@ impl BindGroup {
         }
     }
 }
-
 
 struct HandlesFactory<'a> {
     device: &'a wgpu::Device,
@@ -226,8 +225,7 @@ impl<'a> HandlesFactory<'a> {
     fn sampler_entries(
         &'a self,
         bindings: &'a [mdl::Binding<mdl::SamplerInfo>],
-    ) -> impl Iterator<Item = wgpu::BindGroupLayoutEntry> + 'a
-    {
+    ) -> impl Iterator<Item = wgpu::BindGroupLayoutEntry> + 'a {
         bindings.iter().map(|binding| {
             let sampler_type = self.sampler_binding_type(&binding.info.sampler);
             let ty = wgpu::BindingType::Sampler(sampler_type);

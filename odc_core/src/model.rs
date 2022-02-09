@@ -42,9 +42,7 @@ impl RenderModel {
     }
 
     pub fn has_sampler(&self, name: &str) -> bool {
-        self.bind_groups
-            .iter()
-            .any(|(_, bg)| bg.has_sampler(name))
+        self.bind_groups.iter().any(|(_, bg)| bg.has_sampler(name))
     }
 
     pub fn connected_attachments<'a>(&'a self, name: &'a str) -> HashSet<&'a str> {
@@ -55,7 +53,10 @@ impl RenderModel {
         loop {
             for pass in self.passes.values() {
                 if pass.has_texture_attachment(name) {
-                    let color_iter = pass.color_attachments.iter().map(|att| att.texture.as_str());
+                    let color_iter = pass
+                        .color_attachments
+                        .iter()
+                        .map(|att| att.texture.as_str());
                     let depth_iter = pass.depth_attachment.iter().map(|att| att.texture.as_str());
                     connected.extend(color_iter.chain(depth_iter));
                 }
@@ -338,7 +339,7 @@ pub enum Sampler {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FilterMode {
     Linear,
-    Anisotropic(AnisotropyLevel)
+    Anisotropic(AnisotropyLevel),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

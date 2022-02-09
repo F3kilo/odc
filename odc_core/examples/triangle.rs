@@ -1,10 +1,10 @@
 mod common;
 mod models;
 
-use std::ops::Range;
 use common::Example;
-use odc_core::{OdcCore, model::RenderModel, DrawData};
 use glam::Mat4;
+use odc_core::{model::RenderModel, DrawData, OdcCore};
+use std::ops::Range;
 
 struct Triangle;
 

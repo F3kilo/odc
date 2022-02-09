@@ -96,12 +96,12 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
         size: Size2d {
             x: window.inner_size().width as _,
             y: window.inner_size().height as _,
-        }
+        },
     };
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
     let window_source = "color";
-    unsafe {renderer.add_window(window_source, window_info) };
+    unsafe { renderer.add_window(window_source, window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {

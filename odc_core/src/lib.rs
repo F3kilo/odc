@@ -6,8 +6,8 @@ use model as mdl;
 use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
 use res::Resources;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
@@ -38,8 +38,7 @@ impl OdcCore {
         let device = GfxDevice::new(&instance, Some(&surface));
         let resources = Resources::new(&device.device, &model);
         let bind_groups = BindGroups::new(&device.device, &model, &resources);
- let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
-
+        let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
 
         Self {
             instance,
@@ -77,7 +76,7 @@ impl OdcCore {
 
     pub fn resize_window(&mut self, source_texture_id: &str, size: mdl::Size2d) {
         if size.is_zero() {
-            return
+            return;
         }
         self.windows[source_texture_id].resize(&self.device.device, size)
     }
@@ -89,7 +88,8 @@ impl OdcCore {
 
         let to_resize = self.model.connected_attachments(attachment_id);
         for texture_id in to_resize {
-            self.resources.resize_texture(&self.device.device, texture_id, size);
+            self.resources
+                .resize_texture(&self.device.device, texture_id, size);
 
             if let Entry::Occupied(mut entry) = self.windows.entry(texture_id.into()) {
                 let window = entry.get_mut();

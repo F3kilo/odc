@@ -11,11 +11,7 @@ pub struct Pipelines {
 impl Pipelines {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn new(
-        device: &wgpu::Device,
-        model: &mdl::RenderModel,
-        bind_groups: &BindGroups,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, model: &mdl::RenderModel, bind_groups: &BindGroups) -> Self {
         let factory = HandlesFactory { device, model };
 
         let render = model
@@ -31,8 +27,8 @@ impl Pipelines {
     }
 
     pub fn bind<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, pipeline: &str) {
-    	let pipeline = &self.render[pipeline].0;
-    	pass.set_pipeline(pipeline);
+        let pipeline = &self.render[pipeline].0;
+        pass.set_pipeline(pipeline);
     }
 }
 

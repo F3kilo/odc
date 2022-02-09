@@ -1,13 +1,12 @@
 mod common;
 mod models;
 
-use crate::common::{Example};
+use crate::common::Example;
 use glam::{Mat4, Quat, Vec3};
 use odc_core::{model::RenderModel, DrawData, OdcCore};
 use std::f32::consts::PI;
 use std::ops::Range;
 use vp_cam::{Camera, CameraBuilder};
-
 
 fn main() {
     common::run_example(MeshesExample)

@@ -1,6 +1,6 @@
-use std::num::NonZeroU8;
 use crate::model as mdl;
 use std::collections::HashMap;
+use std::num::NonZeroU8;
 
 pub struct Resources {
     buffers: HashMap<String, Buffer>,
@@ -264,11 +264,23 @@ impl Sampler {
         Self(handle)
     }
 
-    pub fn sampler_info(info: mdl::Sampler) -> (wgpu::FilterMode, Option<NonZeroU8>, Option<wgpu::CompareFunction>) {
+    pub fn sampler_info(
+        info: mdl::Sampler,
+    ) -> (
+        wgpu::FilterMode,
+        Option<NonZeroU8>,
+        Option<wgpu::CompareFunction>,
+    ) {
         match info {
             mdl::Sampler::NonFilter => (wgpu::FilterMode::Nearest, None, None),
-            mdl::Sampler::Filter(mode) => (wgpu::FilterMode::Linear, Self::anisotropy_mode(mode), None),
-            mdl::Sampler::Comparison(mode) => (wgpu::FilterMode::Nearest, None, Some(Self::compare_mode(mode))),
+            mdl::Sampler::Filter(mode) => {
+                (wgpu::FilterMode::Linear, Self::anisotropy_mode(mode), None)
+            }
+            mdl::Sampler::Comparison(mode) => (
+                wgpu::FilterMode::Nearest,
+                None,
+                Some(Self::compare_mode(mode)),
+            ),
         }
     }
 
@@ -296,7 +308,7 @@ impl Sampler {
             mdl::AnisotropyLevel::Two => Some(NonZeroU8::new(2).unwrap()),
             mdl::AnisotropyLevel::Four => Some(NonZeroU8::new(4).unwrap()),
             mdl::AnisotropyLevel::Eight => Some(NonZeroU8::new(8).unwrap()),
-            mdl::AnisotropyLevel::Sixteen => Some( NonZeroU8::new(16).unwrap()),
+            mdl::AnisotropyLevel::Sixteen => Some(NonZeroU8::new(16).unwrap()),
         }
     }
 }
@@ -343,19 +355,18 @@ impl<'a> HandlesFactory<'a> {
     }
 
     pub fn create_sampler(&self, name: &str, info: mdl::Sampler) -> Sampler {
-        
-                let (filter, anisotropy, compare) = Sampler::sampler_info(info);
+        let (filter, anisotropy, compare) = Sampler::sampler_info(info);
 
-                let descriptor = wgpu::SamplerDescriptor {
-                    label: Some(name),
-                    mag_filter: filter,
-                    min_filter: filter,
-                    mipmap_filter: filter,
-                    anisotropy_clamp: anisotropy,
-                    compare,
-                    ..Default::default()
-                };
-                let sampler = self.device.create_sampler(&descriptor);
-                Sampler::new(sampler)
+        let descriptor = wgpu::SamplerDescriptor {
+            label: Some(name),
+            mag_filter: filter,
+            min_filter: filter,
+            mipmap_filter: filter,
+            anisotropy_clamp: anisotropy,
+            compare,
+            ..Default::default()
+        };
+        let sampler = self.device.create_sampler(&descriptor);
+        Sampler::new(sampler)
     }
 }
