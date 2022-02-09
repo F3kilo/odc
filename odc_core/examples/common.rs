@@ -100,7 +100,7 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     };
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
-    let window_source = "depth";
+    let window_source = "color";
     unsafe {renderer.add_window(window_source, window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;

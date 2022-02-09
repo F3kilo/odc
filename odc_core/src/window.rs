@@ -1,6 +1,7 @@
 use crate::model as mdl;
 use crate::{Resources, Swapchain};
 use raw_window_handle::HasRawWindowHandle;
+use wgpu::TextureSampleType;
 
 pub struct WindowInfo<'a, Handle: HasRawWindowHandle> {
     pub handle: &'a Handle,
@@ -8,6 +9,7 @@ pub struct WindowInfo<'a, Handle: HasRawWindowHandle> {
 }
 
 pub struct Window {
+    sampler: Sampler,
     swapchain: Swapchain,
     pipeline: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
@@ -22,17 +24,27 @@ impl Window {
         source_id: &str,
     ) -> Self {
         let texture_format = resources.texture_format(source_id);
+        let sampler = Sampler::new(device, texture_format);
         let layout = Self::create_bind_group_layout(device, texture_format, source_id);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some(source_id),
             bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
-        let pipeline = Self::create_pipeline(device, swapchain.format, pipeline_layout, resources, source_id);
+        let pipeline = Self::create_pipeline(
+            device,
+            swapchain.format,
+            pipeline_layout,
+            resources,
+            source_id,
+        );
 
-        let bind_group = Self::create_bind_group(device, &layout, resources, source_id);
+        let texture_view = resources.texture_view(source_id);
+        let bind_group =
+            Self::create_bind_group(device, &layout, &texture_view, &sampler.handle, source_id);
 
         Self {
+            sampler,
             swapchain,
             layout,
             pipeline,
@@ -46,7 +58,14 @@ impl Window {
         resources: &Resources,
         source_id: &str,
     ) {
-        let bind_group = Self::create_bind_group(device, &self.layout, resources, source_id);
+        let texture_view = resources.texture_view(source_id);
+        let bind_group = Self::create_bind_group(
+            device,
+            &self.layout,
+            &texture_view,
+            &self.sampler.handle,
+            source_id,
+        );
         self.bind_group = bind_group;
     }
 
@@ -103,7 +122,13 @@ impl Window {
             count: None,
         };
 
-        let sampler_binding_type = Resources::sampler_binding_type_from_format(texture_format);
+        let sampler_binding_type = match texture_format.describe().sample_type {
+            wgpu::TextureSampleType::Float { filterable: false } => {
+                wgpu::SamplerBindingType::NonFiltering
+            }
+            _ => wgpu::SamplerBindingType::Filtering,
+        };
+
         let sampler_entry = wgpu::BindGroupLayoutEntry {
             binding: 1,
             visibility: wgpu::ShaderStages::FRAGMENT,
@@ -171,18 +196,15 @@ impl Window {
     fn create_bind_group(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
-        resources: &Resources,
+        view: &wgpu::TextureView,
+        sampler: &wgpu::Sampler,
         name: &str,
     ) -> wgpu::BindGroup {
-        let view = resources.texture_view(name);
         let texture_entry = wgpu::BindGroupEntry {
             binding: 0,
             resource: wgpu::BindingResource::TextureView(&view),
         };
 
-        let sampler_type = resources.texture_sampler_type(name);
-        println!("using sampler type in window: {:?}", sampler_type);
-        let sampler = resources.raw_sampler(sampler_type);
         let sampler_entry = wgpu::BindGroupEntry {
             binding: 1,
             resource: wgpu::BindingResource::Sampler(sampler),
@@ -194,5 +216,30 @@ impl Window {
         };
 
         device.create_bind_group(&descriptor)
+    }
+}
+
+pub struct Sampler {
+    handle: wgpu::Sampler,
+}
+
+impl Sampler {
+    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
+        let sample_type = texture_format.describe().sample_type;
+
+        let filter_mode = match sample_type {
+            TextureSampleType::Float { filterable: false } => wgpu::FilterMode::Nearest,
+            _ => wgpu::FilterMode::Linear,
+        };
+
+        let descriptor = wgpu::SamplerDescriptor {
+            min_filter: filter_mode,
+            mag_filter: filter_mode,
+            mipmap_filter: filter_mode,
+            ..Default::default()
+        };
+
+        let handle = device.create_sampler(&descriptor);
+        Self { handle }
     }
 }

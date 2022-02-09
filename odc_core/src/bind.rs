@@ -243,18 +243,6 @@ impl<'a> HandlesFactory<'a> {
         })
     }
 
-    pub fn sampler_layout_entry(
-        &self,
-        binding: &mdl::Binding<mdl::SamplerInfo>,
-    ) -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
-            binding: binding.index,
-            visibility: BindGroup::layout_entry_visibility(binding.shader_stages),
-            ty: wgpu::BindingType::Sampler(self.sampler_binding_type(&binding.info.sampler)),
-            count: None,
-        }
-    }
-
     pub fn sampler_binding_type(&self, name: &str) -> wgpu::SamplerBindingType {
         match &self.model.samplers[name] {
             mdl::Sampler::NonFilter => wgpu::SamplerBindingType::NonFiltering,

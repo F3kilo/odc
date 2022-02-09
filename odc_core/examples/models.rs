@@ -2,7 +2,7 @@
 
 use odc_core::model::*;
 use std::collections::HashMap;
-use std::mem;
+use std::{env, mem};
 
 const VEC4_SIZE: u64 = mem::size_of::<[f32; 4]>() as _;
 const MAT4_SIZE: u64 = VEC4_SIZE * 4;
@@ -46,6 +46,8 @@ pub fn color_mesh_model() -> RenderModel {
         (color_texture_name.into(), color_texture),
         (depth_texture_name.into(), depth_texture),
     ]);
+
+    let samplers = HashMap::from_iter([]);
 
     let uniform = Binding {
         index: 0,
@@ -111,8 +113,9 @@ pub fn color_mesh_model() -> RenderModel {
         stride: MAT4_SIZE,
     };
 
+    println!("{:?}", env::current_dir());
     let shader = Shader {
-        path: "examples/shaders/color_mesh.wgsl".into(),
+        path: "odc_core/examples/shaders/color_mesh.wgsl".into(),
         vs_main: "vs_main".into(),
         fs_main: "fs_main".into(),
     };
@@ -150,6 +153,7 @@ pub fn color_mesh_model() -> RenderModel {
         bind_groups,
         textures,
         buffers,
+        samplers,
     }
 }
 

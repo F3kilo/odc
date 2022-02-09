@@ -57,18 +57,6 @@ impl Resources {
         Texture::find_format(typ)
     }
 
-    pub fn sampler_binding_type_from_format(
-        format: wgpu::TextureFormat,
-    ) -> wgpu::SamplerBindingType {
-        match format.describe().sample_type {
-            wgpu::TextureSampleType::Float { filterable: false } => {
-                wgpu::SamplerBindingType::NonFiltering
-            }
-            wgpu::TextureSampleType::Depth => wgpu::SamplerBindingType::NonFiltering,
-            _ => wgpu::SamplerBindingType::Filtering,
-        }
-    }
-
     pub fn bind_input_buffer<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
