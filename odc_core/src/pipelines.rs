@@ -1,5 +1,4 @@
-use crate::bind::BindGroups;
-use crate::model as mdl;
+use crate::mdl;
 use crate::res::Resources;
 use std::collections::HashMap;
 use std::fs;

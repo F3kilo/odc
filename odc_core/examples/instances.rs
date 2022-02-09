@@ -3,7 +3,7 @@ mod models;
 
 use crate::common::Example;
 use glam::Mat4;
-use odc_core::{model::RenderModel, DrawData, OdcCore};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore};
 use std::f32::consts::PI;
 use std::ops::Range;
 use std::time::Instant;

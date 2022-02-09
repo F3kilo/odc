@@ -1,11 +1,17 @@
-use crate::model as mdl;
-use crate::{Resources, Swapchain};
+use crate::{mdl, Swapchain};
+use crate::res::Resources;
 use raw_window_handle::HasRawWindowHandle;
 use wgpu::TextureSampleType;
 
 pub struct WindowInfo<'a, Handle: HasRawWindowHandle> {
+    pub name: &'a str,
     pub handle: &'a Handle,
     pub size: mdl::Size2d,
+}
+
+pub struct WindowSource {
+    pub texture_view: wgpu::TextureView,
+    pub format: wgpu::TextureFormat,
 }
 
 pub struct Window {
@@ -20,28 +26,26 @@ impl Window {
     pub fn new(
         device: &wgpu::Device,
         swapchain: Swapchain,
-        resources: &Resources,
-        source_id: &str,
+        source: WindowSource,
+        name: &str,
     ) -> Self {
-        let texture_format = resources.texture_format(source_id);
-        let sampler = Sampler::new(device, texture_format);
-        let layout = Self::create_bind_group_layout(device, texture_format, source_id);
+        let sampler = Sampler::new(device, source.format);
+        let layout = Self::create_bind_group_layout(device, source.format, name);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some(source_id),
+            label: Some(name),
             bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
         let pipeline = Self::create_pipeline(
             device,
             swapchain.format,
+            source.format,
             pipeline_layout,
-            resources,
-            source_id,
+            name,
         );
 
-        let texture_view = resources.texture_view(source_id);
         let bind_group =
-            Self::create_bind_group(device, &layout, &texture_view, &sampler.handle, source_id);
+            Self::create_bind_group(device, &layout, &source.texture_view, &sampler.handle, name);
 
         Self {
             sampler,
@@ -55,10 +59,10 @@ impl Window {
     pub fn refresh_bind_group(
         &mut self,
         device: &wgpu::Device,
-        resources: &Resources,
+        resources: &Resources<String>,
         source_id: &str,
     ) {
-        let texture_view = resources.texture_view(source_id);
+        let texture_view = resources.textures.get(source_id);
         let bind_group = Self::create_bind_group(
             device,
             &self.layout,
@@ -145,13 +149,12 @@ impl Window {
 
     fn create_pipeline(
         device: &wgpu::Device,
+        source_format: wgpu::TextureFormat,
         target_format: wgpu::TextureFormat,
         layout: wgpu::PipelineLayout,
-        resources: &Resources,
         name: &str,
     ) -> wgpu::RenderPipeline {
-        let attachment_format = resources.texture_format(name);
-        let descriptor = match attachment_format.describe().sample_type {
+        let descriptor = match source_format.describe().sample_type {
             wgpu::TextureSampleType::Depth => {
                 println!("using depth window shader");
                 wgpu::include_wgsl!("../data/shaders/window_depth.wgsl")

@@ -1,11 +1,11 @@
 use crate::gdevice::GfxDevice;
+use crate::mdl_parse::ModelParser;
+use crate::res::{BindGroupFactory, BindGroups, ResourceFactory, Resources};
 pub use crate::window::WindowInfo;
-use bind::BindGroups;
+use crate::window::WindowSource;
 use bytemuck::Pod;
-use model as mdl;
 use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
-use res::Resources;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -13,9 +13,9 @@ use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
 use window::Window;
 
-mod bind;
 mod gdevice;
-pub mod model;
+pub mod mdl;
+mod mdl_parse;
 mod pipelines;
 mod res;
 mod swapchain;
@@ -24,7 +24,7 @@ mod window;
 pub struct OdcCore {
     instance: wgpu::Instance,
     device: GfxDevice,
-    resources: Resources,
+    resources: Resources<String>,
     bind_groups: BindGroups,
     pipelines: Pipelines,
     model: mdl::RenderModel,
@@ -36,8 +36,9 @@ impl OdcCore {
         let instance = Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(window) };
         let device = GfxDevice::new(&instance, Some(&surface));
-        let resources = Resources::new(&device.device, &model);
-        let bind_groups = BindGroups::new(&device.device, &model, &resources);
+        let parser = ModelParser::new(&model);
+        let resources = Self::create_resources(&device.device, &parser);
+        let bind_groups = Self::create_bind_groups();
         let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
 
         Self {
@@ -53,21 +54,27 @@ impl OdcCore {
 
     /// # Safety
     /// Handle `window` MUST stay valid until `remove_window` call with same `source_texture_id`.
-    pub unsafe fn add_window<Handle>(&mut self, source_texture_id: &str, window: WindowInfo<Handle>)
-    where
+    pub unsafe fn add_window<Handle>(
+        &mut self,
+        source_texture: &str,
+        window_info: WindowInfo<Handle>,
+    ) where
         Handle: HasRawWindowHandle,
     {
-        let surface = self.instance.create_surface(&window.handle);
+        let surface = self.instance.create_surface(&window_info.handle);
         let swapchain = Swapchain::new(surface, &self.device.adapter);
-        swapchain.resize(&self.device.device, window.size);
-        let window = Window::new(
-            &self.device.device,
-            swapchain,
-            &self.resources,
-            source_texture_id,
-        );
+        swapchain.resize(&self.device.device, window_info.size);
 
-        self.windows.insert(source_texture_id.into(), window);
+        let texture_view = self.resources.texture_view(source_texture);
+        let format = self.resources.texture_format(source_texture);
+        let source = WindowSource {
+            texture_view,
+            format,
+        };
+
+        let window = Window::new(&self.device.device, swapchain, source, source_texture);
+
+        self.windows.insert(window_info.name.to_string(), window);
     }
 
     pub fn remove_window(&mut self, source_texture_id: &str) {
@@ -229,6 +236,27 @@ impl OdcCore {
             .iter()
             .map(|attachment| self.resources.texture_view(&attachment.texture))
             .collect()
+    }
+
+    fn create_resources(device: &wgpu::Device, parser: &ModelParser) -> Resources<String> {
+        let factory = ResourceFactory::new(device);
+        let buffers = parser
+            .get_buffers()
+            .map(|info| (info.name.clone(), factory.create_buffer(info)))
+            .collect();
+
+        Resources {
+            buffers,
+            textures: Default::default(),
+            samplers: Default::default(),
+        }
+    }
+
+    fn create_bind_groups(device: &wgpu::Device, parser: &ModelParser, resources: &Resources<String>) -> BindGroups {
+        let factory = BindGroupFactory::new(device, resources);
+        for bind_group in parser.bind_groups {
+
+        }
     }
 }
 

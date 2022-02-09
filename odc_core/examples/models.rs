@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use odc_core::model::*;
+use odc_core::mdl::*;
 use std::collections::HashMap;
 use std::{env, mem};
 

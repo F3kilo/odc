@@ -3,7 +3,7 @@
 use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
 use gltf::{buffer, Accessor, Semantic};
-use odc_core::model::{RenderModel, Size2d};
+use odc_core::mdl::{RenderModel, Size2d};
 use odc_core::{DrawData, OdcCore, WindowInfo};
 use std::mem;
 use std::ops::Range;
@@ -92,16 +92,30 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).unwrap();
     let window_info = WindowInfo {
+        name: "color_window",
         handle: &window,
         size: Size2d {
             x: window.inner_size().width as _,
             y: window.inner_size().height as _,
         },
     };
+
+    let depth_window = winit::window::Window::new(&event_loop).unwrap();
+    let depth_window_info = WindowInfo {
+        name: "depth_window",
+        handle: &depth_window,
+        size: Size2d {
+            x: window.inner_size().width as _,
+            y: window.inner_size().height as _,
+        },
+    };
+
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
-    let window_source = "color";
-    unsafe { renderer.add_window(window_source, window_info) };
+    let color_source = "color";
+    let depth_source = "depth";
+    unsafe { renderer.add_window(color_source, window_info) };
+    unsafe { renderer.add_window(depth_source, depth_window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -118,8 +132,9 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     x: size.width as _,
                     y: size.height as _,
                 };
-                renderer.resize_window(window_source, size);
-                renderer.resize_attachments(window_source, size);
+                renderer.resize_window("color_window", size);
+                renderer.resize_window("depth_window", size);
+                renderer.resize_attachments(color_source, size);
             }
             Event::MainEventsCleared => {
                 let (data, ranges) = ex.draw_info();

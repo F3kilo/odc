@@ -264,6 +264,14 @@ pub struct SamplerInfo {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Buffer {
     pub size: u64,
+    pub role: BufferRole,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum BufferRole {
+    Index,
+    Input,
+    Uniform,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
