@@ -1,64 +1,50 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct RenderModel {
-    pub stages: Stages,
-    pub passes: HashMap<String, Pass>,
-    pub pipelines: HashMap<String, RenderPipeline>,
-    pub bind_groups: HashMap<String, BindGroup>,
-    pub textures: HashMap<String, Texture>,
-    pub buffers: HashMap<String, Buffer>,
-    pub samplers: HashMap<String, Sampler>,
+    pub passes: Vec<Pass>,
+    pub pipelines: Vec<RenderPipeline>,
+    pub bind_groups: Vec<BindGroup>,
+    pub textures: Vec<Texture>,
+    pub samplers: Vec<Sampler>,
+    pub buffers: Buffers,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Buffers {
+    pub index: u64,
+    pub vertex: u64,
+    pub instance: u64,
+    pub uniform: u64,
 }
 
 impl RenderModel {
-    pub fn has_uniform_binding(&self, name: &str) -> bool {
-        self.bind_groups.iter().any(|(_, bg)| bg.has_uniform(name))
-    }
-
-    pub fn has_texture_binding(&self, name: &str) -> bool {
-        let in_bind_group = self.bind_groups.iter().any(|(_, bg)| bg.has_texture(name));
-        let in_window = self.textures[name].window_source;
-        in_bind_group | in_window
-    }
-
-    pub fn has_texture_attachment(&self, name: &str) -> bool {
+    pub fn has_texture_attachment(&self, index: usize) -> bool {
         self.passes
             .iter()
-            .any(|(_, pass)| pass.has_texture_attachment(name))
+            .any(|pass| pass.has_texture_attachment(index))
     }
 
-    pub fn has_input_buffer(&self, name: &str) -> bool {
-        self.pipelines
+    pub fn has_texture_binding(&self, index: usize) -> bool {
+        self.bind_groups
             .iter()
-            .any(|(_, pipeline)| pipeline.has_input_buffer(name))
+            .any(|bind_group| bind_group.has_texture(index))
     }
 
-    pub fn has_index_buffer(&self, name: &str) -> bool {
-        self.pipelines
-            .iter()
-            .any(|(_, pipeline)| pipeline.has_index_buffer(name))
-    }
-
-    pub fn has_sampler(&self, name: &str) -> bool {
-        self.bind_groups.iter().any(|(_, bg)| bg.has_sampler(name))
-    }
-
-    pub fn connected_attachments<'a>(&'a self, name: &'a str) -> HashSet<&'a str> {
+    pub fn connected_attachments(&self, index: usize) -> impl Iterator<Item = usize> {
         let mut connected = HashSet::with_capacity(16);
-        connected.insert(name);
+        connected.insert(index);
         let mut prev_len = 0;
 
         loop {
-            for pass in self.passes.values() {
-                if pass.has_texture_attachment(name) {
-                    let color_iter = pass
-                        .color_attachments
-                        .iter()
-                        .map(|att| att.texture.as_str());
-                    let depth_iter = pass.depth_attachment.iter().map(|att| att.texture.as_str());
-                    connected.extend(color_iter.chain(depth_iter));
+            for index in connected.clone() {
+                for pass in self.passes.iter() {
+                    if pass.has_texture_attachment(index) {
+                        let color_iter = pass.color_attachments.iter().map(|att| att.texture);
+                        let depth_iter = pass.depth_attachment.iter().map(|att| att.texture);
+                        connected.extend(color_iter.chain(depth_iter));
+                    }
                 }
             }
 
@@ -68,69 +54,50 @@ impl RenderModel {
             prev_len = connected.len();
         }
 
-        connected
+        connected.into_iter()
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Stages(pub Vec<PassGroup>);
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct PassGroup(pub Vec<String>);
-
 #[derive(Debug, Clone)]
 pub struct Pass {
-    pub pipelines: Vec<String>,
+    pub pipelines: Vec<usize>,
     pub color_attachments: Vec<Attachment>,
     pub depth_attachment: Option<DepthAttachment>,
 }
 
 impl Pass {
-    pub fn has_texture_attachment(&self, name: &str) -> bool {
+    pub fn has_texture_attachment(&self, index: usize) -> bool {
         let color_attachment = self
             .color_attachments
             .iter()
-            .any(|attachment| attachment.texture == name);
+            .any(|attachment| attachment.texture == index);
 
         let depth_attachment = self
             .depth_attachment
             .iter()
-            .any(|attachment| attachment.texture == name);
+            .any(|attachment| attachment.texture == index);
         color_attachment || depth_attachment
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Attachment {
-    pub texture: String,
+    pub texture: usize,
     pub clear: Option<[f64; 4]>,
     pub store: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DepthAttachment {
-    pub texture: String,
+    pub texture: usize,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RenderPipeline {
-    pub input_buffers: Vec<InputBuffer>,
-    pub index_buffer: String,
-    pub bind_groups: Vec<String>,
+    pub input: Option<PipelineInpit>,
+    pub bind_groups: Vec<usize>,
     pub shader: Shader,
     pub depth: Option<DepthOps>,
-}
-
-impl RenderPipeline {
-    pub fn has_input_buffer(&self, name: &str) -> bool {
-        self.input_buffers
-            .iter()
-            .any(|in_buf| in_buf.buffer == name)
-    }
-
-    pub fn has_index_buffer(&self, name: &str) -> bool {
-        self.index_buffer == name
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -144,10 +111,14 @@ pub struct Shader {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct InputBuffer {
-    pub buffer: String,
+pub struct PipelineInpit {
+    pub vertex: InputInfo,
+    pub instance: InputInfo,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct InputInfo {
     pub attributes: Vec<InputAttribute>,
-    pub input_type: InputType,
     pub stride: u64,
 }
 
@@ -200,32 +171,28 @@ pub enum InputType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct BindGroup {
-    pub uniforms: Vec<Binding<UniformInfo>>,
+    pub uniform: Option<Binding<UniformInfo>>,
     pub textures: Vec<Binding<TextureInfo>>,
     pub samplers: Vec<Binding<SamplerInfo>>,
 }
 
 impl BindGroup {
-    pub fn has_uniform(&self, name: &str) -> bool {
-        self.uniforms
-            .iter()
-            .any(|binding| binding.info.buffer == name)
-    }
-
-    pub fn has_texture(&self, name: &str) -> bool {
+    pub fn has_texture(&self, index: usize) -> bool {
         self.textures
             .iter()
-            .any(|binding| binding.info.texture == name)
+            .any(|binding| binding.info.texture == index)
     }
 
-    pub fn has_sampler(&self, name: &str) -> bool {
+    pub fn has_sampler(&self, index: usize) -> bool {
         self.samplers
             .iter()
-            .any(|binding| binding.info.sampler == name)
+            .any(|binding| binding.info.sampler == index)
     }
 
     pub fn bindings_count(&self) -> usize {
-        self.uniforms.len() + self.textures.len() + self.samplers.len()
+        self.textures.len()
+            + self.samplers.len()
+            + self.uniform.as_ref().map(|_| 1).unwrap_or_default()
     }
 }
 
@@ -245,33 +212,19 @@ pub struct Binding<BindingInfo> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UniformInfo {
-    pub buffer: String,
     pub size: u64,
     pub offset: u64,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TextureInfo {
-    pub texture: String,
+    pub texture: usize,
     pub filterable: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SamplerInfo {
-    pub sampler: String,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Buffer {
-    pub size: u64,
-    pub role: BufferRole,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BufferRole {
-    Index,
-    Input,
-    Uniform,
+    pub sampler: usize,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
@@ -307,8 +260,8 @@ pub enum TexelType {
     Float(BytesPerFloatTexel),
     Sint(BytesPerIntTexel),
     Uint(BytesPerIntTexel),
-    Snorm(BytesPerNormTexel),
-    Unorm(BytesPerNormTexel),
+    Snorm,
+    Unorm,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -322,12 +275,6 @@ pub enum BytesPerIntTexel {
     One,
     Two,
     Four,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum BytesPerNormTexel {
-    One,
-    Two,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

@@ -4,9 +4,8 @@ use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
 use gltf::{buffer, Accessor, Semantic};
 use odc_core::mdl::{RenderModel, Size2d};
-use odc_core::{DrawData, OdcCore, WindowInfo};
+use odc_core::{OdcCore, StagePasses, WindowInfo};
 use std::mem;
-use std::ops::Range;
 use std::path::Path;
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -84,7 +83,7 @@ pub trait Example {
     fn render_model() -> RenderModel;
     fn init(&mut self, renderer: &OdcCore);
     fn update(&mut self, renderer: &OdcCore);
-    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>);
+    fn draw_info(&self) -> Vec<StagePasses>;
 }
 
 pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
@@ -112,8 +111,8 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
 
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
-    let color_source = "color";
-    let depth_source = "depth";
+    let color_source = 0;
+    let depth_source = 1;
     unsafe { renderer.add_window(color_source, window_info) };
     unsafe { renderer.add_window(depth_source, depth_window_info) };
     event_loop.run(move |event, _, flow| {
@@ -137,8 +136,8 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                 renderer.resize_attachments(color_source, size);
             }
             Event::MainEventsCleared => {
-                let (data, ranges) = ex.draw_info();
-                renderer.draw(&data, ranges.into_iter());
+                let stage_passes = ex.draw_info();
+                renderer.draw(&stage_passes);
                 let fps = fps_counter.tick();
                 window.set_title(&format!("FPS: {}", fps));
             }

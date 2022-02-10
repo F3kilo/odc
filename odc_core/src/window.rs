@@ -1,5 +1,4 @@
 use crate::{mdl, Swapchain};
-use crate::res::Resources;
 use raw_window_handle::HasRawWindowHandle;
 use wgpu::TextureSampleType;
 
@@ -23,29 +22,19 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(
-        device: &wgpu::Device,
-        swapchain: Swapchain,
-        source: WindowSource,
-        name: &str,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, swapchain: Swapchain, source: WindowSource) -> Self {
         let sampler = Sampler::new(device, source.format);
-        let layout = Self::create_bind_group_layout(device, source.format, name);
+        let layout = Self::create_bind_group_layout(device, source.format);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some(name),
+            label: None,
             bind_group_layouts: &[&layout],
             push_constant_ranges: &[],
         });
-        let pipeline = Self::create_pipeline(
-            device,
-            swapchain.format,
-            source.format,
-            pipeline_layout,
-            name,
-        );
+        let pipeline =
+            Self::create_pipeline(device, swapchain.format, source.format, pipeline_layout);
 
         let bind_group =
-            Self::create_bind_group(device, &layout, &source.texture_view, &sampler.handle, name);
+            Self::create_bind_group(device, &layout, &source.texture_view, &sampler.handle);
 
         Self {
             sampler,
@@ -56,20 +45,9 @@ impl Window {
         }
     }
 
-    pub fn refresh_bind_group(
-        &mut self,
-        device: &wgpu::Device,
-        resources: &Resources<String>,
-        source_id: &str,
-    ) {
-        let texture_view = resources.textures.get(source_id);
-        let bind_group = Self::create_bind_group(
-            device,
-            &self.layout,
-            &texture_view,
-            &self.sampler.handle,
-            source_id,
-        );
+    pub fn refresh_bind_group(&mut self, device: &wgpu::Device, source_view: &wgpu::TextureView) {
+        let bind_group =
+            Self::create_bind_group(device, &self.layout, source_view, &self.sampler.handle);
         self.bind_group = bind_group;
     }
 
@@ -109,7 +87,6 @@ impl Window {
     fn create_bind_group_layout(
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
-        name: &str,
     ) -> wgpu::BindGroupLayout {
         let sample_type = texture_format.describe().sample_type;
         println!("PipelineLayout sample type: {:?}", sample_type);
@@ -141,7 +118,7 @@ impl Window {
         };
 
         let descriptor = wgpu::BindGroupLayoutDescriptor {
-            label: Some(name),
+            label: None,
             entries: &[texture_entry, sampler_entry],
         };
         device.create_bind_group_layout(&descriptor)
@@ -152,7 +129,6 @@ impl Window {
         source_format: wgpu::TextureFormat,
         target_format: wgpu::TextureFormat,
         layout: wgpu::PipelineLayout,
-        name: &str,
     ) -> wgpu::RenderPipeline {
         let descriptor = match source_format.describe().sample_type {
             wgpu::TextureSampleType::Depth => {
@@ -183,7 +159,7 @@ impl Window {
         });
 
         let descriptor = wgpu::RenderPipelineDescriptor {
-            label: Some(name),
+            label: None,
             layout: Some(&layout),
             vertex,
             fragment,
@@ -201,7 +177,6 @@ impl Window {
         layout: &wgpu::BindGroupLayout,
         view: &wgpu::TextureView,
         sampler: &wgpu::Sampler,
-        name: &str,
     ) -> wgpu::BindGroup {
         let texture_entry = wgpu::BindGroupEntry {
             binding: 0,
@@ -213,7 +188,7 @@ impl Window {
             resource: wgpu::BindingResource::Sampler(sampler),
         };
         let descriptor = wgpu::BindGroupDescriptor {
-            label: Some(name),
+            label: None,
             layout,
             entries: &[texture_entry, sampler_entry],
         };

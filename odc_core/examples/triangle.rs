@@ -3,8 +3,7 @@ mod models;
 
 use common::Example;
 use glam::Mat4;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore};
-use std::ops::Range;
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, StagePass, StagePasses};
 
 struct Triangle;
 
@@ -15,24 +14,27 @@ impl Example for Triangle {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = common::triangle_mesh();
-        renderer.write_buffer("vertex", vertex_data, 0);
-        renderer.write_buffer("index", index_data, 0);
+        renderer.write_vertex(vertex_data, 0);
+        renderer.write_index(index_data, 0);
 
         let ident = Mat4::IDENTITY.to_cols_array_2d();
-        renderer.write_buffer("uniform", &[ident, ident], 0);
-        renderer.write_buffer("instance", &[ident], 0);
+        renderer.write_uniform(&[ident, ident], 0);
+        renderer.write_instance(&[ident], 0);
     }
 
     fn update(&mut self, _renderer: &OdcCore) {}
 
-    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>) {
+    fn draw_info(&self) -> Vec<StagePasses> {
         let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..1,
         };
 
-        (vec![draw], vec![0..1])
+        vec![&[StagePass {
+            index: 0,
+            pipelines: &[&[draw]],
+        }]]
     }
 }
 

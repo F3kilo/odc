@@ -77,7 +77,7 @@ pub fn color_mesh_model() -> RenderModel {
             location: 1,
         },
     ];
-    let vertex_buffer = InputBuffer {
+    let vertex_buffer = InputInfo {
         buffer: vertex_buffer_name.into(),
         attributes,
         input_type: InputType::PerVertex,
@@ -106,7 +106,7 @@ pub fn color_mesh_model() -> RenderModel {
             location: 5,
         },
     ];
-    let instance_buffer = InputBuffer {
+    let instance_buffer = InputInfo {
         buffer: instance_buffer_name.into(),
         attributes,
         input_type: InputType::PerInstance,

@@ -1,13 +1,14 @@
 use crate::gdevice::GfxDevice;
 use crate::mdl_parse::ModelParser;
-use crate::res::{BindGroupFactory, BindGroups, ResourceFactory, Resources};
+use crate::pipelines::PipelinesFactory;
+use crate::res::{BindGroupFactory, BindGroups, Buffers, ResourceFactory, Resources, TextureInfo};
 pub use crate::window::WindowInfo;
 use crate::window::WindowSource;
 use bytemuck::Pod;
 use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::mem;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
@@ -24,11 +25,12 @@ mod window;
 pub struct OdcCore {
     instance: wgpu::Instance,
     device: GfxDevice,
-    resources: Resources<String>,
+    resources: Resources,
     bind_groups: BindGroups,
     pipelines: Pipelines,
     model: mdl::RenderModel,
     windows: HashMap<String, Window>,
+    texture_windows: HashMap<usize, HashSet<String>>,
 }
 
 impl OdcCore {
@@ -38,8 +40,8 @@ impl OdcCore {
         let device = GfxDevice::new(&instance, Some(&surface));
         let parser = ModelParser::new(&model);
         let resources = Self::create_resources(&device.device, &parser);
-        let bind_groups = Self::create_bind_groups();
-        let pipelines = Pipelines::new(&device.device, &model, &bind_groups);
+        let bind_groups = Self::create_bind_groups(&device.device, &parser, &resources);
+        let pipelines = Self::create_pipelines(&device.device, &parser, &bind_groups);
 
         Self {
             instance,
@@ -49,6 +51,7 @@ impl OdcCore {
             pipelines,
             model,
             windows: Default::default(),
+            texture_windows: Default::default(),
         }
     }
 
@@ -56,7 +59,7 @@ impl OdcCore {
     /// Handle `window` MUST stay valid until `remove_window` call with same `source_texture_id`.
     pub unsafe fn add_window<Handle>(
         &mut self,
-        source_texture: &str,
+        source_index: usize,
         window_info: WindowInfo<Handle>,
     ) where
         Handle: HasRawWindowHandle,
@@ -65,20 +68,28 @@ impl OdcCore {
         let swapchain = Swapchain::new(surface, &self.device.adapter);
         swapchain.resize(&self.device.device, window_info.size);
 
-        let texture_view = self.resources.texture_view(source_texture);
-        let format = self.resources.texture_format(source_texture);
+        let source_texture = &self.resources.textures[source_index];
+        let texture_view = source_texture.create_view();
+        let format = source_texture.info.format;
         let source = WindowSource {
             texture_view,
             format,
         };
 
-        let window = Window::new(&self.device.device, swapchain, source, source_texture);
+        let window = Window::new(&self.device.device, swapchain, source);
 
         self.windows.insert(window_info.name.to_string(), window);
+        self.texture_windows
+            .entry(source_index)
+            .or_default()
+            .insert(window_info.name.to_string());
     }
 
-    pub fn remove_window(&mut self, source_texture_id: &str) {
-        self.windows.remove(source_texture_id);
+    pub fn remove_window(&mut self, name: &str) {
+        self.windows.remove(name);
+        for window_set in self.texture_windows.values_mut() {
+            window_set.remove(name);
+        }
     }
 
     pub fn resize_window(&mut self, source_texture_id: &str, size: mdl::Size2d) {
@@ -88,44 +99,70 @@ impl OdcCore {
         self.windows[source_texture_id].resize(&self.device.device, size)
     }
 
-    pub fn resize_attachments(&mut self, attachment_id: &str, size: mdl::Size2d) {
+    pub fn resize_attachments(&mut self, attachment: usize, size: mdl::Size2d) {
         if size.is_zero() {
             return;
         }
 
-        let to_resize = self.model.connected_attachments(attachment_id);
-        for texture_id in to_resize {
-            self.resources
-                .resize_texture(&self.device.device, texture_id, size);
+        let to_resize = self.model.connected_attachments(attachment);
+        let factory = ResourceFactory::new(&self.device.device);
+        for texture_index in to_resize {
+            let size = wgpu::Extent3d {
+                width: size.x as _,
+                height: size.y as _,
+                depth_or_array_layers: 1,
+            };
 
-            if let Entry::Occupied(mut entry) = self.windows.entry(texture_id.into()) {
-                let window = entry.get_mut();
-                window.refresh_bind_group(&self.device.device, &self.resources, texture_id);
+            let info = TextureInfo {
+                size,
+                ..self.resources.textures[texture_index].info
+            };
+            self.resources.textures[texture_index] = factory.create_texture(info);
+            if let Some(windows) = self.texture_windows.get(&texture_index) {
+                for window in windows.iter() {
+                    let source_view = self.resources.textures[texture_index].create_view();
+                    let window = self.windows.get_mut(window).unwrap();
+                    window.refresh_bind_group(&self.device.device, &source_view);
+                }
             }
         }
     }
 
-    pub fn write_buffer<T: Pod>(&self, id: &str, data: &[T], offset: u64) {
-        let data = bytemuck::cast_slice(data);
-        self.resources
-            .write_buffer(&self.device.queue, id, data, offset);
+    pub fn write_index<T: Pod>(&self, data: &[T], offset: u64) {
+        let buffer = &self.resources.buffers.index.handle;
+        self.write_buffer(buffer, data, offset)
     }
 
-    pub fn draw<DataRanges>(&self, data: &[DrawData], ranges: DataRanges)
-    where
-        DataRanges: Iterator<Item = Range<usize>>,
-    {
-        let mut data_per_pipeline = ranges.map(|r| &data[r]);
+    pub fn write_vertex<T: Pod>(&self, data: &[T], offset: u64) {
+        let buffer = &self.resources.buffers.vertex.handle;
+        self.write_buffer(buffer, data, offset)
+    }
 
+    pub fn write_instance<T: Pod>(&self, data: &[T], offset: u64) {
+        let buffer = &self.resources.buffers.instance.handle;
+        self.write_buffer(buffer, data, offset)
+    }
+
+    pub fn write_uniform<T: Pod>(&self, data: &[T], offset: u64) {
+        let buffer = &self.resources.buffers.uniform.handle;
+        self.write_buffer(buffer, data, offset)
+    }
+
+    fn write_buffer<T: Pod>(&self, buffer: &wgpu::Buffer, data: &[T], offset: u64) {
+        let data = bytemuck::cast_slice(data);
+        let offset = mem::size_of::<T>() as u64 * offset;
+        self.device.queue.write_buffer(buffer, offset, data);
+    }
+
+    pub fn draw(&self, stages: &[StagePasses]) {
         let mut encoder = self
             .device
             .device
             .create_command_encoder(&Default::default());
 
-        for pass_group in &self.model.stages.0 {
-            for pass in &pass_group.0 {
-                let pass_info = &self.model.passes[pass];
-                self.draw_pass(pass_info, &mut encoder, &mut data_per_pipeline)
+        for stage in stages {
+            for pass in stage.iter() {
+                self.draw_pass(&mut encoder, pass)
             }
         }
 
@@ -141,14 +178,16 @@ impl OdcCore {
         }
     }
 
-    fn draw_pass<'a>(
-        &self,
-        info: &mdl::Pass,
-        encoder: &mut wgpu::CommandEncoder,
-        data: &mut impl Iterator<Item = &'a [DrawData]>,
-    ) {
-        let color_views = self.color_tagets_views(&info.color_attachments);
-        let attachments_iter = color_views.iter().zip(info.color_attachments.iter());
+    fn draw_pass(&self, encoder: &mut wgpu::CommandEncoder, pass: &StagePass) {
+        let pass_info = &self.model.passes[pass.index];
+
+        let color_views: Vec<_> = pass_info
+            .color_attachments
+            .iter()
+            .map(|attachment| self.resources.textures[attachment.texture].create_view())
+            .collect();
+
+        let attachments_iter = color_views.iter().zip(pass_info.color_attachments.iter());
         let color_attachments: Vec<_> = attachments_iter
             .map(|(view, info)| {
                 let load = match info.clear {
@@ -172,10 +211,10 @@ impl OdcCore {
             })
             .collect();
 
-        let depth_view = info
+        let depth_view = pass_info
             .depth_attachment
             .as_ref()
-            .map(|attachment| self.resources.texture_view(&attachment.texture));
+            .map(|attachment| self.resources.textures[attachment.texture].create_view());
         let depth_attachment =
             depth_view
                 .as_ref()
@@ -193,36 +232,34 @@ impl OdcCore {
             color_attachments: &color_attachments,
             depth_stencil_attachment: depth_attachment,
         };
-        let mut pass = encoder.begin_render_pass(&descriptor);
+        let mut render_pass = encoder.begin_render_pass(&descriptor);
 
-        for pipeline in &info.pipelines {
-            let data = data.next().unwrap();
-            self.draw_pipeline(&mut pass, pipeline, data);
+        let vertex_buffer = &self.resources.buffers.vertex.handle;
+        let instance_buffer = &self.resources.buffers.vertex.handle;
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+
+        let pipelines = pass_info.pipelines.iter().zip(pass.pipelines.iter());
+        for (pipeline_index, draws) in pipelines {
+            self.draw_pipeline(&mut render_pass, *pipeline_index, draws);
         }
     }
 
     fn draw_pipeline<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
-        pipeline: &str,
-        draw_data: &[DrawData],
+        pipeline: usize,
+        draws: &PipelineDraws,
     ) {
-        self.pipelines.bind(pass, pipeline);
+        pass.set_pipeline(&self.pipelines.render[pipeline].handle);
         let pipeline_info = &self.model.pipelines[pipeline];
 
-        self.resources
-            .bind_index_buffer(pass, &pipeline_info.index_buffer);
-
-        for (i, input_buffer) in pipeline_info.input_buffers.iter().enumerate() {
-            self.resources
-                .bind_input_buffer(pass, &input_buffer.buffer, i as _);
-        }
-
         for (i, bind_group) in pipeline_info.bind_groups.iter().enumerate() {
-            self.bind_groups.bind(pass, bind_group, i as _);
+            let bind_groups = &self.bind_groups.0;
+            pass.set_bind_group(i as _, &bind_groups[*bind_group].handle, &[]);
         }
 
-        for draw in draw_data {
+        for draw in draws.iter() {
             pass.draw_indexed(
                 draw.indices.clone(),
                 draw.base_vertex,
@@ -231,38 +268,85 @@ impl OdcCore {
         }
     }
 
-    fn color_tagets_views(&self, attachments: &[mdl::Attachment]) -> Vec<wgpu::TextureView> {
-        attachments
-            .iter()
-            .map(|attachment| self.resources.texture_view(&attachment.texture))
-            .collect()
-    }
-
-    fn create_resources(device: &wgpu::Device, parser: &ModelParser) -> Resources<String> {
+    fn create_resources(device: &wgpu::Device, parser: &ModelParser) -> Resources {
         let factory = ResourceFactory::new(device);
-        let buffers = parser
-            .get_buffers()
-            .map(|info| (info.name.clone(), factory.create_buffer(info)))
+
+        let index_info = parser.index_info();
+        let index = factory.create_buffer(index_info);
+
+        let vertex_info = parser.vertex_info();
+        let vertex = factory.create_buffer(vertex_info);
+
+        let instance_info = parser.instance_info();
+        let instance = factory.create_buffer(instance_info);
+
+        let uniform_info = parser.uniform_info();
+        let uniform = factory.create_buffer(uniform_info);
+
+        let buffers = Buffers {
+            index,
+            vertex,
+            instance,
+            uniform,
+        };
+
+        let textures = parser
+            .textures_info()
+            .map(|info| factory.create_texture(info))
+            .collect();
+        let samplers = parser
+            .samplers_info()
+            .map(|info| factory.create_sampler(info))
             .collect();
 
         Resources {
             buffers,
-            textures: Default::default(),
-            samplers: Default::default(),
+            textures,
+            samplers,
         }
     }
 
-    fn create_bind_groups(device: &wgpu::Device, parser: &ModelParser, resources: &Resources<String>) -> BindGroups {
+    fn create_bind_groups(
+        device: &wgpu::Device,
+        parser: &ModelParser,
+        resources: &Resources,
+    ) -> BindGroups {
         let factory = BindGroupFactory::new(device, resources);
-        for bind_group in parser.bind_groups {
+        let storage = parser
+            .bind_groups_info()
+            .map(|info| factory.create_bind_group(info))
+            .collect();
+        BindGroups::new(storage)
+    }
 
-        }
+    fn create_pipelines(
+        device: &wgpu::Device,
+        parser: &ModelParser,
+        bind_groups: &BindGroups,
+    ) -> Pipelines {
+        let factory = PipelinesFactory::new(device, bind_groups);
+
+        let render = parser
+            .render_pipelines_info()
+            .map(|info| factory.create_render_pipeline(info))
+            .collect();
+
+        Pipelines { render }
     }
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct DrawData {
     pub indices: Range<u32>,
     pub base_vertex: i32,
     pub instances: Range<u32>,
 }
+
+pub type StagePasses<'a> = &'a [StagePass<'a>];
+pub struct StagePass<'a> {
+    pub index: usize,
+    pub pipelines: &'a [PipelineDraws<'a>],
+}
+pub type PassPipelines<'a> = &'a [PipelineDraws<'a>];
+pub type PipelineDraws<'a> = &'a [DrawData];

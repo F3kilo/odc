@@ -1,8 +1,13 @@
-use crate::res::Storage;
 use crate::Resources;
 use std::num::NonZeroU64;
 
-pub struct BindGroups(Storage<String, BindGroup>);
+pub struct BindGroups(pub Vec<BindGroup>);
+
+impl BindGroups {
+    pub fn new(storage: Vec<BindGroup>) -> Self {
+        Self(storage)
+    }
+}
 
 pub struct BindGroup {
     pub handle: wgpu::BindGroup,
@@ -11,21 +16,21 @@ pub struct BindGroup {
 }
 
 pub struct BindGroupInfo {
-    pub name: String,
-    pub uniforms: Vec<Binding<UniformBindingInfo>>,
+    pub uniform: Option<Binding<UniformBindingInfo>>,
     pub textures: Vec<Binding<TextureBindingInfo>>,
     pub samplers: Vec<Binding<SamplerBindingInfo>>,
 }
 
 impl BindGroupInfo {
     pub fn bindings_count(&self) -> usize {
-        self.uniforms.len() + self.textures.len() + self.samplers.len()
+        self.textures.len()
+            + self.samplers.len()
+            + self.uniform.as_ref().map(|_| 1).unwrap_or_default()
     }
 }
 
-struct Binding<BindingInfo> {
+pub struct Binding<BindingInfo> {
     pub index: u32,
-    pub id: String,
     pub visibility: wgpu::ShaderStages,
     pub info: BindingInfo,
 }
@@ -112,36 +117,38 @@ pub struct UniformBindingInfo {
 }
 
 pub struct TextureBindingInfo {
+    pub texture_index: usize,
     pub format: wgpu::TextureFormat,
 }
 
 pub struct SamplerBindingInfo {
+    pub sampler_index: usize,
     pub typ: wgpu::SamplerBindingType,
 }
 
 pub struct BindGroupFactory<'a> {
     device: &'a wgpu::Device,
-    resources: &'a Resources<String>,
+    resources: &'a Resources,
 }
 
 impl<'a> BindGroupFactory<'a> {
-    pub fn new(device: &'a wgpu::Device, resources: &'a Resources<String>) -> Self {
+    pub fn new(device: &'a wgpu::Device, resources: &'a Resources) -> Self {
         Self { device, resources }
     }
 
-    pub fn create_bind_group(&self, name: String, info: BindGroupInfo) -> BindGroup {
+    pub fn create_bind_group(&self, info: BindGroupInfo) -> BindGroup {
         let layout = self.create_bind_group_layout(&info);
 
         let mut entries = Vec::with_capacity(info.bindings_count());
-        entries.extend(info.uniforms.iter().map(|b| {
-            let buffer = self.resources.buffers.get(&b.id);
-            b.entry(&buffer.handle)
+        entries.extend(info.uniform.iter().map(|b| {
+            let buffer = &self.resources.buffers.uniform.handle;
+            b.entry(buffer)
         }));
 
         let views: Vec<_> = info
             .textures
             .iter()
-            .map(|b| self.resources.textures.get(&b.id).create_view())
+            .map(|b| self.resources.textures[b.info.texture_index].create_view())
             .collect();
         entries.extend(
             info.textures
@@ -151,12 +158,12 @@ impl<'a> BindGroupFactory<'a> {
         );
 
         entries.extend(info.samplers.iter().map(|b| {
-            let sampler = self.resources.samplers.get(&b.id);
+            let sampler = &self.resources.samplers[b.info.sampler_index];
             b.entry(&sampler.handle)
         }));
 
         let descriptor = wgpu::BindGroupDescriptor {
-            label: Some(&name),
+            label: None,
             layout: &layout,
             entries: &entries,
         };
@@ -171,12 +178,12 @@ impl<'a> BindGroupFactory<'a> {
 
     fn create_bind_group_layout(&self, info: &BindGroupInfo) -> wgpu::BindGroupLayout {
         let mut entries = Vec::with_capacity(info.bindings_count());
-        entries.extend(info.uniforms.iter().map(|b| b.layout_entry()));
+        entries.extend(info.uniform.iter().map(|b| b.layout_entry()));
         entries.extend(info.textures.iter().map(|b| b.layout_entry()));
         entries.extend(info.samplers.iter().map(|b| b.layout_entry()));
 
         let descriptor = wgpu::BindGroupLayoutDescriptor {
-            label: Some(&info.name),
+            label: None,
             entries: &entries,
         };
         self.device.create_bind_group_layout(&descriptor)
