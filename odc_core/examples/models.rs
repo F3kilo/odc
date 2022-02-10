@@ -1,69 +1,46 @@
 #![allow(dead_code)]
 
 use odc_core::mdl::*;
-use std::collections::HashMap;
-use std::{env, mem};
+use std::mem;
 
 const VEC4_SIZE: u64 = mem::size_of::<[f32; 4]>() as _;
 const MAT4_SIZE: u64 = VEC4_SIZE * 4;
 
 pub fn color_mesh_model() -> RenderModel {
-    let vertex_buffer_name = "vertex";
-    let vertex_buffer = Buffer { size: 2u64.pow(16) };
-    let instance_buffer_name = "instance";
-    let instance_buffer = Buffer { size: 2u64.pow(16) };
-    let index_buffer_name = "index";
-    let index_buffer = Buffer { size: 2u64.pow(16) };
-    let uniform_buffer_name = "uniform";
-    let uniform_size = MAT4_SIZE as u64 * 2;
-    let uniform_buffer = Buffer { size: uniform_size };
-
-    let buffers = HashMap::from_iter([
-        (vertex_buffer_name.into(), vertex_buffer),
-        (instance_buffer_name.into(), instance_buffer),
-        (index_buffer_name.into(), index_buffer),
-        (uniform_buffer_name.into(), uniform_buffer),
-    ]);
-
     let window_size = Size2d { x: 800, y: 600 };
 
-    let color_texture_name = "color";
     let color_texture = Texture {
         typ: TextureType::Color {
-            texel: TexelType::Unorm(BytesPerNormTexel::One),
+            texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
         },
         size: window_size,
         window_source: true,
     };
-    let depth_texture_name = "depth";
+
     let depth_texture = Texture {
         typ: TextureType::Depth,
         size: window_size,
         window_source: true,
     };
-    let textures = HashMap::from_iter([
-        (color_texture_name.into(), color_texture),
-        (depth_texture_name.into(), depth_texture),
-    ]);
+    let textures = vec![color_texture, depth_texture];
 
-    let samplers = HashMap::from_iter([]);
+    let samplers = vec![];
 
+    let uniform_size = MAT4_SIZE * 2;
     let uniform = Binding {
         index: 0,
         shader_stages: ShaderStages::Vertex,
         info: UniformInfo {
-            buffer: uniform_buffer_name.into(),
             size: uniform_size,
             offset: 0,
         },
     };
-    let bind_group_name = "bind_group";
     let bind_group = BindGroup {
-        uniforms: vec![uniform],
+        uniform: Some(uniform),
         ..Default::default()
     };
-    let bind_groups = HashMap::from_iter([(bind_group_name.into(), bind_group)]);
+    let bind_groups = vec![bind_group];
 
     let attributes = vec![
         InputAttribute {
@@ -78,9 +55,7 @@ pub fn color_mesh_model() -> RenderModel {
         },
     ];
     let vertex_buffer = InputInfo {
-        buffer: vertex_buffer_name.into(),
         attributes,
-        input_type: InputType::PerVertex,
         stride: VEC4_SIZE * 2,
     };
 
@@ -107,47 +82,47 @@ pub fn color_mesh_model() -> RenderModel {
         },
     ];
     let instance_buffer = InputInfo {
-        buffer: instance_buffer_name.into(),
         attributes,
-        input_type: InputType::PerInstance,
         stride: MAT4_SIZE,
     };
 
-    println!("{:?}", env::current_dir());
     let shader = Shader {
         path: "odc_core/examples/shaders/color_mesh.wgsl".into(),
         vs_main: "vs_main".into(),
         fs_main: "fs_main".into(),
     };
-    let pipeline_name = "pipeline";
+
     let pipeline = RenderPipeline {
-        input_buffers: vec![vertex_buffer, instance_buffer],
-        index_buffer: index_buffer_name.into(),
-        bind_groups: vec![bind_group_name.into()],
+        input: Some(PipelineInpit {
+            vertex: vertex_buffer,
+            instance: instance_buffer,
+        }),
+        bind_groups: vec![0],
         shader,
         depth: Some(DepthOps {}),
     };
-    let pipelines = HashMap::from_iter([(pipeline_name.into(), pipeline)]);
+    let pipelines = vec![pipeline];
 
-    let pass_name = "color_pass";
     let pass = Pass {
-        pipelines: vec![pipeline_name.into()],
+        pipelines: vec![0],
         color_attachments: vec![Attachment {
-            texture: color_texture_name.into(),
+            texture: 0,
             clear: Some([0.0, 0.0, 0.0, 1.0]),
             store: true,
         }],
-        depth_attachment: Some(DepthAttachment {
-            texture: depth_texture_name.into(),
-        }),
+        depth_attachment: Some(DepthAttachment { texture: 1 }),
     };
 
-    let passes = HashMap::from_iter([(pass_name.into(), pass)]);
+    let passes = vec![pass];
 
-    let stages = Stages(vec![PassGroup(vec![pass_name.into()])]);
+    let buffers = Buffers {
+        index: 2u64.pow(10),
+        vertex: 2u64.pow(10),
+        instance: 2u64.pow(10),
+        uniform: uniform_size,
+    };
 
     RenderModel {
-        stages,
         passes,
         pipelines,
         bind_groups,

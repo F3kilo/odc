@@ -1,9 +1,10 @@
 mod common;
 mod models;
 
+use crate::common::DrawDataTree;
 use common::Example;
 use glam::Mat4;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, StagePass, StagePasses};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
 
 struct Triangle;
 
@@ -24,17 +25,21 @@ impl Example for Triangle {
 
     fn update(&mut self, _renderer: &OdcCore) {}
 
-    fn draw_info(&self) -> Vec<StagePasses> {
+    fn draw_stages(&self) -> Vec<Stage> {
+        vec![vec![Pass {
+            index: 0,
+            pipelines: vec![0],
+        }]]
+    }
+
+    fn draw_data(&self) -> DrawDataTree {
         let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..1,
         };
 
-        vec![&[StagePass {
-            index: 0,
-            pipelines: &[&[draw]],
-        }]]
+        DrawDataTree(vec![vec![vec![draw]]])
     }
 }
 

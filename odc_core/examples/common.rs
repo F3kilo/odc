@@ -4,7 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
 use gltf::{buffer, Accessor, Semantic};
 use odc_core::mdl::{RenderModel, Size2d};
-use odc_core::{OdcCore, StagePasses, WindowInfo};
+use odc_core::{DrawData, DrawDataSource, OdcCore, Stage, WindowInfo};
 use std::mem;
 use std::path::Path;
 use winit::event::{Event, StartCause, WindowEvent};
@@ -83,7 +83,8 @@ pub trait Example {
     fn render_model() -> RenderModel;
     fn init(&mut self, renderer: &OdcCore);
     fn update(&mut self, renderer: &OdcCore);
-    fn draw_info(&self) -> Vec<StagePasses>;
+    fn draw_stages(&self) -> Vec<Stage>;
+    fn draw_data(&self) -> DrawDataTree;
 }
 
 pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
@@ -99,22 +100,22 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
         },
     };
 
-    let depth_window = winit::window::Window::new(&event_loop).unwrap();
-    let depth_window_info = WindowInfo {
-        name: "depth_window",
-        handle: &depth_window,
-        size: Size2d {
-            x: window.inner_size().width as _,
-            y: window.inner_size().height as _,
-        },
-    };
+    // let depth_window = winit::window::Window::new(&event_loop).unwrap();
+    // let depth_window_info = WindowInfo {
+    //     name: "depth_window",
+    //     handle: &depth_window,
+    //     size: Size2d {
+    //         x: window.inner_size().width as _,
+    //         y: window.inner_size().height as _,
+    //     },
+    // };
 
     let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
     let mut fps_counter = FPSCounter::new();
     let color_source = 0;
-    let depth_source = 1;
+    // let depth_source = 1;
     unsafe { renderer.add_window(color_source, window_info) };
-    unsafe { renderer.add_window(depth_source, depth_window_info) };
+    // unsafe { renderer.add_window(depth_source, depth_window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -132,12 +133,13 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                     y: size.height as _,
                 };
                 renderer.resize_window("color_window", size);
-                renderer.resize_window("depth_window", size);
+                // renderer.resize_window("depth_window", size);
                 renderer.resize_attachments(color_source, size);
             }
             Event::MainEventsCleared => {
-                let stage_passes = ex.draw_info();
-                renderer.draw(&stage_passes);
+                let stages = ex.draw_stages();
+                let data = ex.draw_data();
+                renderer.draw(&data, &stages);
                 let fps = fps_counter.tick();
                 window.set_title(&format!("FPS: {}", fps));
             }
@@ -151,6 +153,14 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
             _ => {}
         }
     });
+}
+
+pub struct DrawDataTree(pub Vec<Vec<Vec<DrawData>>>);
+
+impl DrawDataSource for DrawDataTree {
+    fn draw_data(&self, pass: usize, pipeline: usize) -> &[DrawData] {
+        &self.0[pass][pipeline]
+    }
 }
 
 pub type VertexData = Vec<u8>;

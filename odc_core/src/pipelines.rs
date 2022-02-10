@@ -104,7 +104,7 @@ impl<'a> PipelinesFactory<'a> {
         let vertex = wgpu::VertexState {
             module: &shader_module,
             entry_point: &info.shader.vs_main,
-            buffers: &input_layouts,
+            buffers: input_layouts,
         };
 
         let layout = self.create_pipeline_layout(&info.bind_groups);

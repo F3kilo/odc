@@ -31,7 +31,7 @@ impl Window {
             push_constant_ranges: &[],
         });
         let pipeline =
-            Self::create_pipeline(device, swapchain.format, source.format, pipeline_layout);
+            Self::create_pipeline(device, source.format, swapchain.format, pipeline_layout);
 
         let bind_group =
             Self::create_bind_group(device, &layout, &source.texture_view, &sampler.handle);
@@ -180,7 +180,7 @@ impl Window {
     ) -> wgpu::BindGroup {
         let texture_entry = wgpu::BindGroupEntry {
             binding: 0,
-            resource: wgpu::BindingResource::TextureView(&view),
+            resource: wgpu::BindingResource::TextureView(view),
         };
 
         let sampler_entry = wgpu::BindGroupEntry {

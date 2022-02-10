@@ -154,7 +154,7 @@ impl OdcCore {
         self.device.queue.write_buffer(buffer, offset, data);
     }
 
-    pub fn draw(&self, stages: &[StagePasses]) {
+    pub fn draw(&self, data: &impl DrawDataSource, stages: &[Stage]) {
         let mut encoder = self
             .device
             .device
@@ -162,7 +162,7 @@ impl OdcCore {
 
         for stage in stages {
             for pass in stage.iter() {
-                self.draw_pass(&mut encoder, pass)
+                self.draw_pass(&mut encoder, data, pass)
             }
         }
 
@@ -178,7 +178,12 @@ impl OdcCore {
         }
     }
 
-    fn draw_pass(&self, encoder: &mut wgpu::CommandEncoder, pass: &StagePass) {
+    fn draw_pass(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        data: &impl DrawDataSource,
+        pass: &Pass,
+    ) {
         let pass_info = &self.model.passes[pass.index];
 
         let color_views: Vec<_> = pass_info
@@ -234,31 +239,34 @@ impl OdcCore {
         };
         let mut render_pass = encoder.begin_render_pass(&descriptor);
 
+        let index_buffer = &self.resources.buffers.index.handle;
         let vertex_buffer = &self.resources.buffers.vertex.handle;
-        let instance_buffer = &self.resources.buffers.vertex.handle;
+        let instance_buffer = &self.resources.buffers.instance.handle;
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
 
-        let pipelines = pass_info.pipelines.iter().zip(pass.pipelines.iter());
-        for (pipeline_index, draws) in pipelines {
-            self.draw_pipeline(&mut render_pass, *pipeline_index, draws);
+        for pipeline in &pass.pipelines {
+            self.draw_pipeline(&mut render_pass, pass.index, *pipeline, data);
         }
     }
 
     fn draw_pipeline<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
-        pipeline: usize,
-        draws: &PipelineDraws,
+        pass_index: usize,
+        pipeline_index: usize,
+        data: &impl DrawDataSource,
     ) {
-        pass.set_pipeline(&self.pipelines.render[pipeline].handle);
-        let pipeline_info = &self.model.pipelines[pipeline];
+        pass.set_pipeline(&self.pipelines.render[pipeline_index].handle);
+        let pipeline_info = &self.model.pipelines[pipeline_index];
 
         for (i, bind_group) in pipeline_info.bind_groups.iter().enumerate() {
             let bind_groups = &self.bind_groups.0;
             pass.set_bind_group(i as _, &bind_groups[*bind_group].handle, &[]);
         }
 
+        let draws = data.draw_data(pass_index, pipeline_index);
         for draw in draws.iter() {
             pass.draw_indexed(
                 draw.indices.clone(),
@@ -343,10 +351,12 @@ pub struct DrawData {
     pub instances: Range<u32>,
 }
 
-pub type StagePasses<'a> = &'a [StagePass<'a>];
-pub struct StagePass<'a> {
-    pub index: usize,
-    pub pipelines: &'a [PipelineDraws<'a>],
+pub trait DrawDataSource {
+    fn draw_data(&self, pass: usize, pipeline: usize) -> &[DrawData];
 }
-pub type PassPipelines<'a> = &'a [PipelineDraws<'a>];
-pub type PipelineDraws<'a> = &'a [DrawData];
+
+pub type Stage = Vec<Pass>;
+pub struct Pass {
+    pub index: usize,
+    pub pipelines: Vec<usize>,
+}

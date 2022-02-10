@@ -32,7 +32,7 @@ impl<'a> ModelParser<'a> {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         }
     }
-    
+
     pub fn instance_info(&self) -> BufferInfo {
         BufferInfo {
             size: self.model.buffers.instance,
@@ -56,7 +56,7 @@ impl<'a> ModelParser<'a> {
                 depth_or_array_layers: 1,
             };
             let mut usages = wgpu::TextureUsages::empty();
-            if model.has_texture_binding(i) {
+            if model.has_texture_binding(i) || texture_model.window_source {
                 usages |= wgpu::TextureUsages::TEXTURE_BINDING;
             }
 
