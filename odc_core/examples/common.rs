@@ -1,22 +1,18 @@
 #![allow(dead_code)]
 
-use std::path::Path;
 use bytemuck::{Pod, Zeroable};
 use fps_counter::FPSCounter;
 use gltf::{buffer, Accessor, Semantic};
-use odc::material::{InputAttribute, InputInfo, MaterialInfo, ShaderInfo};
-use odc::{DrawData, Odc, WindowSize};
-use std::collections::HashMap;
+use odc_core::mdl::{RenderModel, Size2d};
+use odc_core::{DrawData, DrawDataSource, OdcCore, Stage, WindowInfo};
 use std::mem;
-use std::ops::Range;
+use std::path::Path;
 use winit::event::{Event, StartCause, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-
 
 #[derive(Copy, Clone)]
 pub struct ColorVertex {
     pub position: [f32; 4],
-    pub normal: [f32; 4],
     pub color: [f32; 4],
 }
 
@@ -44,17 +40,14 @@ pub fn triangle_mesh() -> (&'static [ColorVertex], &'static [u32]) {
 pub const TRIANGLE_VERTICES: [ColorVertex; 3] = [
     ColorVertex {
         position: [-1.0, -1.0, 0.0, 1.0],
-        normal: [-1.0, -1.0, 0.0, 1.0],
         color: [1.0, 0.0, 0.0, 1.0],
     },
     ColorVertex {
         position: [0.0, 1.0, 0.0, 1.0],
-        normal: [0.0, 1.0, 0.0, 1.0],
         color: [0.0, 1.0, 0.0, 1.0],
     },
     ColorVertex {
         position: [1.0, -1.0, 0.0, 1.0],
-        normal: [1.0, -1.0, 0.0, 1.0],
         color: [0.0, 0.0, 1.0, 1.0],
     },
 ];
@@ -68,22 +61,18 @@ pub fn rectangle_mesh() -> (&'static [ColorVertex], &'static [u32]) {
 pub const RECTANGLE_VERTICES: [ColorVertex; 4] = [
     ColorVertex {
         position: [-1.0, -1.0, 0.0, 1.0],
-        normal: [-1.0, -1.0, 0.0, 1.0],
         color: [0.0, 1.0, 0.0, 1.0],
     },
     ColorVertex {
         position: [-1.0, 1.0, 0.0, 1.0],
-        normal: [-1.0, 1.0, 0.0, 1.0],
         color: [1.0, 0.0, 0.0, 1.0],
     },
     ColorVertex {
         position: [1.0, 1.0, 0.0, 1.0],
-        normal: [1.0, 1.0, 0.0, 1.0],
         color: [0.0, 0.0, 1.0, 1.0],
     },
     ColorVertex {
         position: [1.0, -1.0, 0.0, 1.0],
-        normal: [1.0, -1.0, 0.0, 1.0],
         color: [0.0, 1.0, 1.0, 1.0],
     },
 ];
@@ -91,159 +80,92 @@ pub const RECTANGLE_VERTICES: [ColorVertex; 4] = [
 pub const RECTANGLE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
 
 pub trait Example {
-    fn init(&mut self, renderer: &mut Odc);
-    fn update(&mut self, renderer: &Odc);
-    fn draw_info(&self) -> Vec<(u64, Vec<DrawData>)>;
+    fn render_model() -> RenderModel;
+    fn init(&mut self, renderer: &OdcCore);
+    fn update(&mut self, renderer: &OdcCore);
+    fn draw_stages(&self) -> Vec<Stage>;
+    fn draw_data(&self) -> DrawDataTree;
 }
 
-pub fn run_example(mut ex: impl Example + 'static) -> ! {
+pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = winit::window::Window::new(&event_loop).unwrap();
-    let size = window.inner_size();
-    let size = WindowSize(size.width, size.height);
+    let color_window = winit::window::Window::new(&event_loop).unwrap();
+    let window_info = WindowInfo {
+        name: "color_window",
+        handle: &color_window,
+        size: Size2d {
+            x: color_window.inner_size().width as _,
+            y: color_window.inner_size().height as _,
+        },
+    };
 
-    let mut renderer = Odc::new(&window, size);
+    let depth_window = winit::window::Window::new(&event_loop).unwrap();
+    let depth_window_info = WindowInfo {
+        name: "depth_window",
+        handle: &depth_window,
+        size: Size2d {
+            x: color_window.inner_size().width as _,
+            y: color_window.inner_size().height as _,
+        },
+    };
+
+    let mut renderer = OdcCore::with_window_support(E::render_model(), &color_window);
     let mut fps_counter = FPSCounter::new();
-
+    let color_source = 0;
+    let depth_source = 1;
+    unsafe { renderer.add_window(color_source, window_info) };
+    unsafe { renderer.add_window(depth_source, depth_window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
             Event::NewEvents(cause) => match cause {
-                StartCause::Init => ex.init(&mut renderer),
+                StartCause::Init => ex.init(&renderer),
                 StartCause::Poll => ex.update(&renderer),
                 _ => {}
             },
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
-                ..
+                window_id,
             } => {
-                let size = WindowSize(size.width, size.height);
-                renderer.resize(size);
+                let size = Size2d {
+                    x: size.width as _,
+                    y: size.height as _,
+                };
+                if window_id == color_window.id() {
+                    renderer.resize_window("color_window", size);
+                    renderer.resize_attachments(color_source, size);
+                }
+
+                if window_id == depth_window.id() {
+                    renderer.resize_window("depth_window", size);
+                }
             }
             Event::MainEventsCleared => {
-                let to_draw = ex.draw_info();
-                let draw_map =
-                    HashMap::from_iter(to_draw.iter().map(|(id, d)| (*id, d.as_slice())));
-                renderer.render(&draw_map);
+                let stages = ex.draw_stages();
+                let data = ex.draw_data();
+                renderer.draw(&data, &stages);
                 let fps = fps_counter.tick();
-                window.set_title(&format!("FPS: {}", fps));
+                color_window.set_title(&format!("FPS: {}", fps));
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => *flow = ControlFlow::Exit,
+            } => {
+                renderer.remove_window("color_window");
+                renderer.remove_window("depth_window");
+                *flow = ControlFlow::Exit;
+            }
             _ => {}
         }
     });
 }
 
-pub struct MaterialData {
-    pub vertex_attributes: Vec<InputAttribute>,
-    pub vertex_stride: u64,
-    pub instance_attributes: Vec<InputAttribute>,
-    pub instance_stride: u64,
-    pub shader_source: String,
-    pub vs_entry: String,
-    pub fs_entry: String,
-    pub uniform_location: Range<u64>,
-}
+pub struct DrawDataTree(pub Vec<Vec<Vec<DrawData>>>);
 
-impl MaterialData {
-    pub fn as_info(&self) -> MaterialInfo {
-        MaterialInfo {
-            vertex: InputInfo {
-                attributes: &self.vertex_attributes,
-                stride: self.vertex_stride,
-            },
-            instance: InputInfo {
-                attributes: &self.instance_attributes,
-                stride: self.instance_stride,
-            },
-            shader: ShaderInfo {
-                source: &self.shader_source,
-                vs_entry: &self.vs_entry,
-                fs_entry: &self.fs_entry,
-            },
-            uniform_location: self.uniform_location.clone(),
-        }
-    }
-}
-
-pub fn color_mesh_material_data() -> MaterialData {
-    let vertex_attributes =
-        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4].to_vec();
-    let instance_attributes =
-        wgpu::vertex_attr_array![3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4]
-            .to_vec();
-
-    let shader_source = include_str!("shaders/color_mesh.wgsl").to_string();
-    let vs_entry = "vs_main".to_string();
-    let fs_entry = "fs_main".to_string();
-
-    let mat4_size = 16 * 4;
-    let uniform_location = 0..(mat4_size * 2);
-
-    MaterialData {
-        vertex_attributes,
-        vertex_stride: 12 * 4,
-        instance_attributes,
-        instance_stride: mat4_size,
-        shader_source,
-        vs_entry,
-        fs_entry,
-        uniform_location,
-    }
-}
-
-pub fn blue_mesh_material_data() -> MaterialData {
-    let vertex_attributes =
-        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4].to_vec();
-    let instance_attributes =
-        wgpu::vertex_attr_array![3 => Float32x4, 4 => Float32x4, 5 => Float32x4, 6 => Float32x4]
-            .to_vec();
-
-    let shader_source = include_str!("shaders/blue_mesh.wgsl").to_string();
-    let vs_entry = "vs_main".to_string();
-    let fs_entry = "fs_main".to_string();
-
-    let mat4_size = 16 * 4;
-    let uniform_location = 0..(mat4_size * 2);
-
-    MaterialData {
-        vertex_attributes,
-        vertex_stride: 12 * 4,
-        instance_attributes,
-        instance_stride: mat4_size,
-        shader_source,
-        vs_entry,
-        fs_entry,
-        uniform_location,
-    }
-}
-
-pub fn mesh_material_data() -> MaterialData {
-    let vertex_attributes = wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4].to_vec();
-    let instance_attributes =
-        wgpu::vertex_attr_array![2 => Float32x4, 3 => Float32x4, 4 => Float32x4, 5 => Float32x4]
-            .to_vec();
-
-    let shader_source = include_str!("shaders/mesh.wgsl").to_string();
-    let vs_entry = "vs_main".to_string();
-    let fs_entry = "fs_main".to_string();
-
-    let mat4_size = 16 * 4;
-    let uniform_location = 0..(mat4_size * 2);
-
-    MaterialData {
-        vertex_attributes,
-        vertex_stride: 8 * 4,
-        instance_attributes,
-        instance_stride: mat4_size,
-        shader_source,
-        vs_entry,
-        fs_entry,
-        uniform_location,
+impl DrawDataSource for DrawDataTree {
+    fn draw_data(&self, pass: usize, pipeline: usize) -> &[DrawData] {
+        &self.0[pass][pipeline]
     }
 }
 
@@ -307,7 +229,7 @@ impl MeshData {
     pub fn index_data_from_accessor(&mut self, accessor: Accessor, buffers: &[buffer::Data]) {
         let mut src_offset = accessor.offset();
         let count = accessor.count();
-        
+
         let view = accessor.view().unwrap();
         src_offset += view.offset();
 
@@ -323,9 +245,9 @@ impl MeshData {
                 let dst = self.1.as_mut_slice();
                 copy_with_step(src, stride, dst, Self::INDEX_SIZE, Self::INDEX_SIZE);
             }
-            None => {
-                self.1.copy_from_slice(&buffer[src_offset..(src_offset + data_len)])
-            }
+            None => self
+                .1
+                .copy_from_slice(&buffer[src_offset..(src_offset + data_len)]),
         }
     }
 }
