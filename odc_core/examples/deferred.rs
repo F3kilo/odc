@@ -1,24 +1,24 @@
 mod common;
 
-use crate::common::{DrawDataTree, Example};
+use crate::common::{DrawDataTree, Example, mesh, models};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
+use odc_core::{DrawData, mdl::RenderModel, OdcCore, Pass, Stage};
 use std::f32::consts::PI;
 use std::time::Instant;
-use vp_cam::{Camera, CameraBuilder, Vec3};
+use vp_cam::{Camera, CameraBuilder};
 
 fn main() {
-    let rotation = CameraMovement::default();
+    let rotation = Rotation::default();
     let camera = create_camera();
     common::run_example(InstancesExample(camera, rotation))
 }
 
-struct InstancesExample(Camera, CameraMovement);
+struct InstancesExample(Camera, Rotation);
 
 impl Example for InstancesExample {
     fn render_model() -> RenderModel {
-        common::models::color_mesh::color_mesh_model()
+        models::color_mesh::color_mesh_model()
     }
 
     fn windows() -> Vec<(usize, String, Size2d)> {
@@ -26,18 +26,17 @@ impl Example for InstancesExample {
     }
 
     fn init(&mut self, renderer: &OdcCore) {
-        let (vertex_data, index_data) = common::mesh::triangle_mesh();
+        let (vertex_data, index_data) = mesh::rectangle_mesh();
         renderer.write_index(index_data, 0);
         renderer.write_vertex(vertex_data, 0);
 
-        let instances = get_instances();
-        renderer.write_instance(&[instances], 0);
+        let instance = Mat4::IDENTITY.to_cols_array_2d();
+        renderer.write_instance(&[instance], 0);
     }
 
     fn update(&mut self, renderer: &OdcCore) {
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
-        self.0.set_position(self.1.cam_position());
         let view_proj = self.0.view_proj_transform();
         renderer.write_uniform(&[world, view_proj], 0);
     }
@@ -51,41 +50,17 @@ impl Example for InstancesExample {
 
     fn draw_data(&self) -> DrawDataTree {
         let draw = DrawData {
-            indices: 0..3,
+            indices: 0..6,
             base_vertex: 0,
-            instances: 0..256,
+            instances: 0..1,
         };
 
         DrawDataTree(vec![vec![vec![draw]]])
     }
 }
 
-fn get_instances() -> [Transform; 256] {
-    let mut instances = [Transform::default(); 256];
-
-    for i in 0..16 {
-        for j in 0..16 {
-            instances[i * 16 + j] = create_instance(i, j);
-        }
-    }
-
-    instances
-}
-
-fn create_instance(x: usize, y: usize) -> Transform {
-    let step = 2.0 / 16.0;
-    let x = (x as f32 - 7.5) * step;
-    let y = (y as f32 - 7.5) * step;
-    let pos = glam::vec3(x, y, 0.0);
-    let size = step / 2.5;
-    let scale = glam::vec3(size, size, size);
-    glam::Mat4::from_scale_rotation_translation(scale, glam::Quat::IDENTITY, pos).to_cols_array_2d()
-}
-
-type Transform = [[f32; 4]; 4];
-
 fn create_camera() -> Camera {
-    let pos = [0.0, 0.0, -CameraMovement::RADIUS];
+    let pos = [0.0, 0.0, -2.0];
     let target = [0.0; 3];
     let up = [0.0, 1.0, 0.0];
     CameraBuilder::default()
@@ -95,11 +70,11 @@ fn create_camera() -> Camera {
         .build()
 }
 
-struct CameraMovement {
+struct Rotation {
     start: Instant,
 }
 
-impl Default for CameraMovement {
+impl Default for Rotation {
     fn default() -> Self {
         Self {
             start: Instant::now(),
@@ -107,16 +82,10 @@ impl Default for CameraMovement {
     }
 }
 
-impl CameraMovement {
-    pub const RADIUS: f32 = 1.0;
-
-    pub fn cam_position(&self) -> Vec3 {
+impl Rotation {
+    pub fn angle(&self) -> f32 {
         let elapsed = (Instant::now() - self.start).as_secs_f32();
         let secs_per_cycle = 4.0;
-        let angle = ((2.0 * PI * elapsed) / secs_per_cycle) % (2.0 * PI);
-
-        let x = Self::RADIUS * angle.sin();
-        let y = Self::RADIUS * -angle.cos();
-        [x, y, -1.0]
+        ((2.0 * PI * elapsed) / secs_per_cycle) % (2.0 * PI)
     }
 }

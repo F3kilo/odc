@@ -1,5 +1,4 @@
 mod common;
-mod models;
 
 use crate::common::{DrawDataTree, Example};
 use glam::{Mat4, Quat, Vec3};
@@ -16,7 +15,7 @@ struct MeshesExample;
 
 impl Example for MeshesExample {
     fn render_model() -> RenderModel {
-        models::color_mesh_model()
+        common::models::color_mesh::color_mesh_model()
     }
 
     fn windows() -> Vec<(usize, String, Size2d)> {
@@ -27,13 +26,13 @@ impl Example for MeshesExample {
     }
 
     fn init(&mut self, renderer: &OdcCore) {
-        let (vertex_data, index_data) = common::triangle_mesh();
+        let (vertex_data, index_data) = common::mesh::triangle_mesh();
         renderer.write_index(index_data, 0);
         renderer.write_vertex(vertex_data, 0);
 
         let vertex_offset = vertex_data.len();
         let index_offset = index_data.len();
-        let (vertex_data, index_data) = common::rectangle_mesh();
+        let (vertex_data, index_data) = common::mesh::rectangle_mesh();
         renderer.write_index(index_data, index_offset as _);
         renderer.write_vertex(vertex_data, vertex_offset as _);
 
