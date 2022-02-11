@@ -1,11 +1,10 @@
 mod common;
 mod models;
 
-use crate::common::Example;
+use crate::common::{DrawDataTree, Example};
 use glam::Mat4;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
 use std::f32::consts::PI;
-use std::ops::Range;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
 
@@ -24,11 +23,11 @@ impl Example for InstancesExample {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = common::triangle_mesh();
-        renderer.write_buffer("vertex", vertex_data, 0);
-        renderer.write_buffer("index", index_data, 0);
+        renderer.write_index(index_data, 0);
+        renderer.write_vertex(vertex_data, 0);
 
         let instances = get_instances();
-        renderer.write_buffer("instance", &[instances], 0);
+        renderer.write_instance(&[instances], 0);
     }
 
     fn update(&mut self, renderer: &OdcCore) {
@@ -36,17 +35,24 @@ impl Example for InstancesExample {
         let world = ident_transform;
         self.0.set_position(self.1.cam_position());
         let view_proj = self.0.view_proj_transform();
-        renderer.write_buffer("uniform", &[world, view_proj], 0);
+        renderer.write_uniform(&[world, view_proj], 0);
     }
 
-    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>) {
+    fn draw_stages(&self) -> Vec<Stage> {
+        vec![vec![Pass {
+            index: 0,
+            pipelines: vec![0],
+        }]]
+    }
+
+    fn draw_data(&self) -> DrawDataTree {
         let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..256,
         };
 
-        (vec![draw], vec![0..1])
+        DrawDataTree(vec![vec![vec![draw]]])
     }
 }
 

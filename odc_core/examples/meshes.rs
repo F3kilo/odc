@@ -1,11 +1,10 @@
 mod common;
 mod models;
 
-use crate::common::Example;
+use crate::common::{DrawDataTree, Example};
 use glam::{Mat4, Quat, Vec3};
-use odc_core::{mdl::RenderModel, DrawData, OdcCore};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
 use std::f32::consts::PI;
-use std::ops::Range;
 use vp_cam::{Camera, CameraBuilder};
 
 fn main() {
@@ -21,14 +20,14 @@ impl Example for MeshesExample {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = common::triangle_mesh();
-        renderer.write_buffer("vertex", vertex_data, 0);
-        renderer.write_buffer("index", index_data, 0);
+        renderer.write_index(index_data, 0);
+        renderer.write_vertex(vertex_data, 0);
 
-        let vertex_offset = vertex_data.len() * common::ColorVertex::size();
-        let index_offset = index_data.len() * 4;
+        let vertex_offset = vertex_data.len();
+        let index_offset = index_data.len();
         let (vertex_data, index_data) = common::rectangle_mesh();
-        renderer.write_buffer("vertex", vertex_data, vertex_offset as _);
-        renderer.write_buffer("index", index_data, index_offset as _);
+        renderer.write_index(index_data, index_offset as _);
+        renderer.write_vertex(vertex_data, vertex_offset as _);
 
         let scale = Vec3::new(0.5, 0.5, 0.5);
         let left = Vec3::new(-0.2, 0.0, 0.2);
@@ -39,18 +38,25 @@ impl Example for MeshesExample {
             Mat4::from_scale_rotation_translation(scale, rot_left, left).to_cols_array_2d();
         let right_transform =
             Mat4::from_scale_rotation_translation(scale, rot_right, right).to_cols_array_2d();
-        renderer.write_buffer("instance", &[left_transform, right_transform], 0);
+        renderer.write_instance(&[left_transform, right_transform], 0);
 
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
         let camera = create_camera();
         let view_proj = camera.view_proj_transform();
-        renderer.write_buffer("uniform", &[world, view_proj], 0);
+        renderer.write_uniform(&[world, view_proj], 0);
     }
 
     fn update(&mut self, _renderer: &OdcCore) {}
 
-    fn draw_info(&self) -> (Vec<DrawData>, Vec<Range<usize>>) {
+    fn draw_stages(&self) -> Vec<Stage> {
+        vec![vec![Pass {
+            index: 0,
+            pipelines: vec![0],
+        }]]
+    }
+
+    fn draw_data(&self) -> DrawDataTree {
         let draw_triangle = DrawData {
             indices: 0..3,
             base_vertex: 0,
@@ -63,7 +69,7 @@ impl Example for MeshesExample {
             instances: 1..2,
         };
 
-        (vec![draw_rectangle, draw_triangle], vec![0..2])
+        DrawDataTree(vec![vec![vec![draw_triangle, draw_rectangle]]])
     }
 }
 

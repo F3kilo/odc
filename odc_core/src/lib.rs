@@ -128,7 +128,7 @@ impl OdcCore {
         }
     }
 
-    pub fn write_index<T: Pod>(&self, data: &[T], offset: u64) {
+    pub fn write_index(&self, data: &[u32], offset: u64) {
         let buffer = &self.resources.buffers.index.handle;
         self.write_buffer(buffer, data, offset)
     }

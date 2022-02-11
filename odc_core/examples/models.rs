@@ -118,7 +118,7 @@ pub fn color_mesh_model() -> RenderModel {
     let buffers = Buffers {
         index: 2u64.pow(10),
         vertex: 2u64.pow(10),
-        instance: 2u64.pow(10),
+        instance: 2u64.pow(16),
         uniform: uniform_size,
     };
 
