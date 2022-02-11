@@ -3,6 +3,7 @@ mod models;
 
 use crate::common::{DrawDataTree, Example};
 use glam::Mat4;
+use odc_core::mdl::Size2d;
 use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
 use std::f32::consts::PI;
 use std::time::Instant;
@@ -19,6 +20,10 @@ struct InstancesExample(Camera, CameraMovement);
 impl Example for InstancesExample {
     fn render_model() -> RenderModel {
         models::color_mesh_model()
+    }
+
+    fn windows() -> Vec<(usize, String, Size2d)> {
+        vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
     }
 
     fn init(&mut self, renderer: &OdcCore) {
