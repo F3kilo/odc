@@ -90,32 +90,32 @@ pub trait Example {
 pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = winit::window::Window::new(&event_loop).unwrap();
+    let color_window = winit::window::Window::new(&event_loop).unwrap();
     let window_info = WindowInfo {
         name: "color_window",
-        handle: &window,
+        handle: &color_window,
         size: Size2d {
-            x: window.inner_size().width as _,
-            y: window.inner_size().height as _,
+            x: color_window.inner_size().width as _,
+            y: color_window.inner_size().height as _,
         },
     };
 
-    // let depth_window = winit::window::Window::new(&event_loop).unwrap();
-    // let depth_window_info = WindowInfo {
-    //     name: "depth_window",
-    //     handle: &depth_window,
-    //     size: Size2d {
-    //         x: window.inner_size().width as _,
-    //         y: window.inner_size().height as _,
-    //     },
-    // };
+    let depth_window = winit::window::Window::new(&event_loop).unwrap();
+    let depth_window_info = WindowInfo {
+        name: "depth_window",
+        handle: &depth_window,
+        size: Size2d {
+            x: color_window.inner_size().width as _,
+            y: color_window.inner_size().height as _,
+        },
+    };
 
-    let mut renderer = OdcCore::with_window_support(E::render_model(), &window);
+    let mut renderer = OdcCore::with_window_support(E::render_model(), &color_window);
     let mut fps_counter = FPSCounter::new();
     let color_source = 0;
-    // let depth_source = 1;
+    let depth_source = 1;
     unsafe { renderer.add_window(color_source, window_info) };
-    // unsafe { renderer.add_window(depth_source, depth_window_info) };
+    unsafe { renderer.add_window(depth_source, depth_window_info) };
     event_loop.run(move |event, _, flow| {
         *flow = ControlFlow::Poll;
         match event {
@@ -126,28 +126,34 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
             },
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
-                ..
+                window_id,
             } => {
                 let size = Size2d {
                     x: size.width as _,
                     y: size.height as _,
                 };
-                renderer.resize_window("color_window", size);
-                // renderer.resize_window("depth_window", size);
-                renderer.resize_attachments(color_source, size);
+                if window_id == color_window.id() {
+                    renderer.resize_window("color_window", size);
+                    renderer.resize_attachments(color_source, size);
+                }
+
+                if window_id == depth_window.id() {
+                    renderer.resize_window("depth_window", size);
+                }
             }
             Event::MainEventsCleared => {
                 let stages = ex.draw_stages();
                 let data = ex.draw_data();
                 renderer.draw(&data, &stages);
                 let fps = fps_counter.tick();
-                window.set_title(&format!("FPS: {}", fps));
+                color_window.set_title(&format!("FPS: {}", fps));
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                renderer.remove_window("color");
+                renderer.remove_window("color_window");
+                renderer.remove_window("depth_window");
                 *flow = ControlFlow::Exit;
             }
             _ => {}
