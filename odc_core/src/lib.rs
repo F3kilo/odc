@@ -34,6 +34,26 @@ pub struct OdcCore {
 }
 
 impl OdcCore {
+    pub fn new(model: mdl::RenderModel) -> Self {
+        let instance = Instance::new(Backends::all());
+        let device = GfxDevice::new(&instance, None);
+        let parser = ModelParser::new(&model);
+        let resources = Self::create_resources(&device.device, &parser);
+        let bind_groups = Self::create_bind_groups(&device.device, &parser, &resources);
+        let pipelines = Self::create_pipelines(&device.device, &parser, &bind_groups);
+
+        Self {
+            instance,
+            device,
+            resources,
+            bind_groups,
+            pipelines,
+            model,
+            windows: Default::default(),
+            texture_windows: Default::default(),
+        }
+    }
+
     pub fn with_window_support(model: mdl::RenderModel, window: &impl HasRawWindowHandle) -> Self {
         let instance = Instance::new(Backends::all());
         let surface = unsafe { instance.create_surface(window) };
@@ -92,11 +112,11 @@ impl OdcCore {
         }
     }
 
-    pub fn resize_window(&mut self, source_texture_id: &str, size: mdl::Size2d) {
+    pub fn resize_window(&mut self, window_name: &str, size: mdl::Size2d) {
         if size.is_zero() {
             return;
         }
-        self.windows[source_texture_id].resize(&self.device.device, size)
+        self.windows[window_name].resize(&self.device.device, size)
     }
 
     pub fn resize_attachments(&mut self, attachment: usize, size: mdl::Size2d) {

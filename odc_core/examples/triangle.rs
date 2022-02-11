@@ -4,6 +4,7 @@ mod models;
 use crate::common::DrawDataTree;
 use common::Example;
 use glam::Mat4;
+use odc_core::mdl::Size2d;
 use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
 
 struct Triangle;
@@ -11,6 +12,10 @@ struct Triangle;
 impl Example for Triangle {
     fn render_model() -> RenderModel {
         models::color_mesh_model()
+    }
+
+    fn windows() -> Vec<(usize, String, Size2d)> {
+        vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
     }
 
     fn init(&mut self, renderer: &OdcCore) {
