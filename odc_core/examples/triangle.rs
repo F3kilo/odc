@@ -1,10 +1,10 @@
 mod common;
 
-use crate::common::DrawDataTree;
-use common::{Example, mesh};
+use crate::common::DrawDataStorage;
+use common::{mesh, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{DrawData, mdl::RenderModel, OdcCore, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore};
 
 struct Triangle;
 
@@ -29,18 +29,18 @@ impl Example for Triangle {
 
     fn update(&mut self, _renderer: &OdcCore) {}
 
-    fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![0]]
-    }
-
-    fn draw_data(&self) -> DrawDataTree {
+    fn draw_data(&self) -> Vec<DrawDataStorage> {
         let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..1,
         };
 
-        DrawDataTree(vec![vec![vec![draw]]])
+        vec![DrawDataStorage {
+            pass: 0,
+            pipeline: 0,
+            data: vec![draw],
+        }]
     }
 }
 

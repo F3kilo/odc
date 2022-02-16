@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
-pub use wgpu::{BlendState, BlendComponent, BlendFactor, BlendOperation};
+pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState};
 
 #[derive(Debug, Clone)]
 pub struct RenderModel {

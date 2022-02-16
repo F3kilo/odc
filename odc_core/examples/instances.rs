@@ -1,9 +1,9 @@
 mod common;
 
-use crate::common::{DrawDataTree, Example};
+use crate::common::{DrawDataStorage, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, PassIndex, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -42,18 +42,18 @@ impl Example for InstancesExample {
         renderer.write_uniform(&[world, view_proj], 0);
     }
 
-    fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![0]]
-    }
-
-    fn draw_data(&self) -> DrawDataTree {
+    fn draw_data(&self) -> Vec<DrawDataStorage> {
         let draw = DrawData {
             indices: 0..3,
             base_vertex: 0,
             instances: 0..256,
         };
 
-        DrawDataTree(vec![vec![vec![draw]]])
+        vec![DrawDataStorage {
+            pass: 0,
+            pipeline: 0,
+            data: vec![draw],
+        }]
     }
 }
 

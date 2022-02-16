@@ -3,7 +3,7 @@ pub mod mesh;
 pub mod models;
 
 use odc_core::mdl::{RenderModel, Size2d};
-use odc_core::{DrawData, DrawDataSource, OdcCore, Stage, WindowInfo};
+use odc_core::{DrawData, OdcCore, RenderStep, WindowInfo};
 use std::collections::HashMap;
 use winit::dpi::PhysicalSize;
 use winit::event::{Event, StartCause, WindowEvent};
@@ -15,8 +15,7 @@ pub trait Example {
     fn windows() -> Vec<(usize, String, Size2d)>;
     fn init(&mut self, renderer: &OdcCore);
     fn update(&mut self, renderer: &OdcCore);
-    fn draw_stages(&self) -> Vec<Stage>;
-    fn draw_data(&self) -> DrawDataTree;
+    fn draw_data(&self) -> Vec<DrawDataStorage>;
 }
 
 pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
@@ -69,9 +68,9 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
                 renderer.resize_attachments(window.2, size);
             }
             Event::MainEventsCleared => {
-                let stages = ex.draw_stages();
                 let data = ex.draw_data();
-                renderer.draw(&data, &stages);
+                let steps = data.iter().map(Into::into);
+                renderer.draw(steps);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -87,10 +86,18 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
     });
 }
 
-pub struct DrawDataTree(pub Vec<Vec<Vec<DrawData>>>);
+pub struct DrawDataStorage {
+    pub pass: usize,
+    pub pipeline: usize,
+    pub data: Vec<DrawData>,
+}
 
-impl DrawDataSource for DrawDataTree {
-    fn draw_data(&self, pass: usize, pipeline: usize) -> &[DrawData] {
-        &self.0[pass][pipeline]
+impl<'a> From<&'a DrawDataStorage> for RenderStep<'a> {
+    fn from(s: &'a DrawDataStorage) -> Self {
+        RenderStep {
+            pass: s.pass,
+            pipeline: s.pipeline,
+            data: &s.data,
+        }
     }
 }

@@ -141,7 +141,7 @@ impl<'a> BindGroupFactory<'a> {
         let info = &bind_group.info;
 
         let views = self.texture_views(&info.textures);
-        let entries = self.collect_entries(&info, views.iter());
+        let entries = self.collect_entries(info, views.iter());
         let handle = self.create_raw_handle(&bind_group.layout, &entries);
 
         bind_group.handle = handle;
@@ -161,7 +161,11 @@ impl<'a> BindGroupFactory<'a> {
         }
     }
 
-    fn create_raw_handle(&self, layout: &wgpu::BindGroupLayout, entries: &[wgpu::BindGroupEntry]) -> wgpu::BindGroup {
+    fn create_raw_handle(
+        &self,
+        layout: &wgpu::BindGroupLayout,
+        entries: &[wgpu::BindGroupEntry],
+    ) -> wgpu::BindGroup {
         let descriptor = wgpu::BindGroupDescriptor {
             label: None,
             layout,

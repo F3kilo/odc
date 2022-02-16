@@ -1,9 +1,9 @@
 mod common;
 
-use crate::common::{DrawDataTree, Example};
+use crate::common::{DrawDataStorage, Example};
 use glam::{Mat4, Quat, Vec3};
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore};
 use std::f32::consts::PI;
 use vp_cam::{Camera, CameraBuilder};
 
@@ -56,11 +56,7 @@ impl Example for MeshesExample {
 
     fn update(&mut self, _renderer: &OdcCore) {}
 
-    fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![0]]
-    }
-
-    fn draw_data(&self) -> DrawDataTree {
+    fn draw_data(&self) -> Vec<DrawDataStorage> {
         let draw_triangle = DrawData {
             indices: 0..3,
             base_vertex: 0,
@@ -73,7 +69,11 @@ impl Example for MeshesExample {
             instances: 1..2,
         };
 
-        DrawDataTree(vec![vec![vec![draw_triangle, draw_rectangle]]])
+        vec![DrawDataStorage {
+            pass: 0,
+            pipeline: 0,
+            data: vec![draw_triangle, draw_rectangle],
+        }]
     }
 }
 

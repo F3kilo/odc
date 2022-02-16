@@ -1,9 +1,9 @@
 mod common;
 
-use crate::common::{mesh, models, DrawDataTree, Example};
+use crate::common::{mesh, models, DrawDataStorage, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder};
@@ -63,11 +63,7 @@ impl Example for InstancesExample {
         );
     }
 
-    fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![0, 1, 2]]
-    }
-
-    fn draw_data(&self) -> DrawDataTree {
+    fn draw_data(&self) -> Vec<DrawDataStorage> {
         let rect = DrawData {
             indices: 3..9,
             base_vertex: 0,
@@ -86,16 +82,24 @@ impl Example for InstancesExample {
             instances: 0..1,
         };
 
-        let deferred_pipeline_draws = vec![rect];
-        let deferred_pass_draws = vec![deferred_pipeline_draws];
+        let deferred_data = DrawDataStorage {
+            pass: 0,
+            pipeline: 0,
+            data: vec![rect],
+        };
 
-        let light_pipeline_draws = vec![light];
-        let light_pass_draws = vec![vec![], light_pipeline_draws];
+        let light_data = DrawDataStorage {
+            pass: 1,
+            pipeline: 1,
+            data: vec![light],
+        };
 
-        let final_pipeline_draws = vec![tri];
-        let final_pass_draws = vec![vec![], vec![], final_pipeline_draws];
-
-        DrawDataTree(vec![deferred_pass_draws, light_pass_draws, final_pass_draws])
+        let final_data = DrawDataStorage {
+            pass: 2,
+            pipeline: 2,
+            data: vec![tri],
+        };
+        vec![deferred_data, light_data, final_data]
     }
 }
 

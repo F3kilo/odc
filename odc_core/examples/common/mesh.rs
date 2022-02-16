@@ -1,5 +1,5 @@
-use std::mem;
 use bytemuck::{Pod, Zeroable};
+use std::mem;
 
 #[derive(Copy, Clone)]
 pub struct ColorVertex {
