@@ -191,16 +191,17 @@ impl OdcCore {
         self.device.queue.write_buffer(buffer, offset, data);
     }
 
-    pub fn draw(&self, data: &impl DrawDataSource, stages: &[Stage]) {
+    pub fn draw<'a, RenderIter>(&'a self, steps: RenderIter)
+    where
+        RenderIter: Iterator<Item = RenderStep<'a>>,
+    {
         let mut encoder = self
             .device
             .device
             .create_command_encoder(&Default::default());
 
-        for stage in stages {
-            for pass_index in stage.iter() {
-                self.draw_pass(&mut encoder, data, *pass_index)
-            }
+        for step in steps {
+            self.draw_pass(&mut encoder, step)
         }
 
         let window_frames: Vec<_> = self
@@ -215,22 +216,54 @@ impl OdcCore {
         }
     }
 
-    fn draw_pass(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        data: &impl DrawDataSource,
-        pass_index: PassIndex,
-    ) {
-        let pass_info = &self.model.passes[pass_index];
+    fn draw_pass(&self, encoder: &mut wgpu::CommandEncoder, step: RenderStep) {
+        let color_views = self.pass_attachment_views(step.pass);
+        let color_attachments = self.pass_color_attachments(step.pass, color_views.iter());
 
-        let color_views: Vec<_> = pass_info
+        let depth_view = self.pass_depth_view(step.pass);
+        let depth_attachment = depth_view
+            .as_ref()
+            .map(|view| self.pass_depth_attachment(view));
+
+        let descriptor = wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &color_attachments,
+            depth_stencil_attachment: depth_attachment,
+        };
+        let mut render_pass = encoder.begin_render_pass(&descriptor);
+
+        let index_buffer = &self.resources.buffers.index.handle;
+        let vertex_buffer = &self.resources.buffers.vertex.handle;
+        let instance_buffer = &self.resources.buffers.instance.handle;
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+
+        self.draw_pipeline(&mut render_pass, step);
+    }
+
+    fn pass_attachment_views(&self, pass: usize) -> Vec<wgpu::TextureView> {
+        let pass_info = &self.model.passes[pass];
+
+        pass_info
             .color_attachments
             .iter()
             .map(|attachment| self.resources.textures[attachment.texture].create_view())
-            .collect();
+            .collect()
+    }
 
-        let attachments_iter = color_views.iter().zip(pass_info.color_attachments.iter());
-        let color_attachments: Vec<_> = attachments_iter
+    fn pass_color_attachments<'a, ViewsIter>(
+        &self,
+        pass: usize,
+        views: ViewsIter,
+    ) -> Vec<wgpu::RenderPassColorAttachment<'a>>
+    where
+        ViewsIter: Iterator<Item = &'a wgpu::TextureView>,
+    {
+        let pass_info = &self.model.passes[pass];
+
+        let attachments_iter = views.zip(pass_info.color_attachments.iter());
+        attachments_iter
             .map(|(view, info)| {
                 let load = match info.clear {
                     Some(color) => wgpu::LoadOp::Clear(wgpu::Color {
@@ -251,60 +284,41 @@ impl OdcCore {
                     },
                 }
             })
-            .collect();
+            .collect()
+    }
 
-        let depth_view = pass_info
+    fn pass_depth_view(&self, pass: usize) -> Option<wgpu::TextureView> {
+        let pass_info = &self.model.passes[pass];
+        pass_info
             .depth_attachment
             .as_ref()
-            .map(|attachment| self.resources.textures[attachment.texture].create_view());
-        let depth_attachment =
-            depth_view
-                .as_ref()
-                .map(|view| wgpu::RenderPassDepthStencilAttachment {
-                    view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                });
+            .map(|attachment| self.resources.textures[attachment.texture].create_view())
+    }
 
-        let descriptor = wgpu::RenderPassDescriptor {
-            label: None,
-            color_attachments: &color_attachments,
-            depth_stencil_attachment: depth_attachment,
-        };
-        let mut render_pass = encoder.begin_render_pass(&descriptor);
-
-        let index_buffer = &self.resources.buffers.index.handle;
-        let vertex_buffer = &self.resources.buffers.vertex.handle;
-        let instance_buffer = &self.resources.buffers.instance.handle;
-        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-
-        for pipeline in &pass_info.pipelines {
-            self.draw_pipeline(&mut render_pass, pass_index, *pipeline, data);
+    fn pass_depth_attachment<'a>(
+        &self,
+        view: &'a wgpu::TextureView,
+    ) -> wgpu::RenderPassDepthStencilAttachment<'a> {
+        wgpu::RenderPassDepthStencilAttachment {
+            view,
+            depth_ops: Some(wgpu::Operations {
+                load: wgpu::LoadOp::Clear(1.0),
+                store: true,
+            }),
+            stencil_ops: None,
         }
     }
 
-    fn draw_pipeline<'a>(
-        &'a self,
-        pass: &mut wgpu::RenderPass<'a>,
-        pass_index: usize,
-        pipeline_index: usize,
-        data: &impl DrawDataSource,
-    ) {
-        pass.set_pipeline(&self.pipelines.render[pipeline_index].handle);
-        let pipeline_info = &self.model.pipelines[pipeline_index];
+    fn draw_pipeline<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, step: RenderStep) {
+        pass.set_pipeline(&self.pipelines.render[step.pipeline].handle);
+        let pipeline_info = &self.model.pipelines[step.pipeline];
 
         for (i, bind_group) in pipeline_info.bind_groups.iter().enumerate() {
             let bind_groups = &self.bind_groups.0;
             pass.set_bind_group(i as _, &bind_groups[*bind_group].handle, &[]);
         }
 
-        let draws = data.draw_data(pass_index, pipeline_index);
-        for draw in draws.iter() {
+        for draw in step.data.iter() {
             pass.draw_indexed(
                 draw.indices.clone(),
                 draw.base_vertex,
@@ -388,9 +402,9 @@ pub struct DrawData {
     pub instances: Range<u32>,
 }
 
-pub trait DrawDataSource {
-    fn draw_data(&self, pass: usize, pipeline: usize) -> &[DrawData];
+#[derive(Debug, Copy, Clone)]
+pub struct RenderStep<'a> {
+    pub pass: usize,
+    pub pipeline: usize,
+    pub data: &'a [DrawData],
 }
-
-pub type Stage = Vec<PassIndex>;
-pub type PassIndex = usize;
