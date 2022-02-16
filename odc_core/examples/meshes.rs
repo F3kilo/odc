@@ -3,7 +3,7 @@ mod common;
 use crate::common::{DrawDataTree, Example};
 use glam::{Mat4, Quat, Vec3};
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, PassIndex, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, Stage};
 use std::f32::consts::PI;
 use vp_cam::{Camera, CameraBuilder};
 

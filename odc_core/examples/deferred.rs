@@ -26,6 +26,7 @@ impl Example for InstancesExample {
             (0, "position".into(), Size2d { x: 800, y: 600 }),
             (1, "albedo".into(), Size2d { x: 800, y: 600 }),
             (2, "light".into(), Size2d { x: 800, y: 600 }),
+            (4, "final".into(), Size2d { x: 800, y: 600 }),
         ]
     }
 
@@ -46,10 +47,24 @@ impl Example for InstancesExample {
         let world = ident_transform;
         let view_proj = self.0.view_proj_transform();
         renderer.write_uniform(&[world, view_proj], 0);
+
+        let angle = self.1.angle();
+        let initial_pos = glam::vec4(0.8, 0.0, 0.0, 1.0);
+        let light1_pos = glam::Mat4::from_rotation_z(angle) * initial_pos;
+        let light2_pos = glam::Mat4::from_rotation_z(angle + 2.0 * PI / 3.0) * initial_pos;
+        let light3_pos = glam::Mat4::from_rotation_z(angle + 4.0 * PI / 3.0) * initial_pos;
+        renderer.write_instance(
+            &[
+                light1_pos.to_array(),
+                light2_pos.to_array(),
+                light3_pos.to_array(),
+            ],
+            4,
+        );
     }
 
     fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![0, 1]]
+        vec![vec![0, 1, 2]]
     }
 
     fn draw_data(&self) -> DrawDataTree {
@@ -57,6 +72,12 @@ impl Example for InstancesExample {
             indices: 3..9,
             base_vertex: 0,
             instances: 0..1,
+        };
+
+        let light = DrawData {
+            indices: 0..3,
+            base_vertex: 0,
+            instances: 4..7,
         };
 
         let tri = DrawData {
@@ -68,10 +89,13 @@ impl Example for InstancesExample {
         let deferred_pipeline_draws = vec![rect];
         let deferred_pass_draws = vec![deferred_pipeline_draws];
 
-        let light_pipeline_draws = vec![tri];
+        let light_pipeline_draws = vec![light];
         let light_pass_draws = vec![vec![], light_pipeline_draws];
 
-        DrawDataTree(vec![deferred_pass_draws, light_pass_draws])
+        let final_pipeline_draws = vec![tri];
+        let final_pass_draws = vec![vec![], vec![], final_pipeline_draws];
+
+        DrawDataTree(vec![deferred_pass_draws, light_pass_draws, final_pass_draws])
     }
 }
 

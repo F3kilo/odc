@@ -4,7 +4,7 @@ use crate::common::DrawDataTree;
 use common::{Example, mesh};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{DrawData, mdl::RenderModel, OdcCore, PassIndex, Stage};
+use odc_core::{DrawData, mdl::RenderModel, OdcCore, Stage};
 
 struct Triangle;
 

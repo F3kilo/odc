@@ -126,6 +126,7 @@ fn pipelines() -> Vec<RenderPipeline> {
             instance: instance_buffer,
         }),
         bind_groups: vec![0],
+        blend: vec![None],
         shader,
         depth: Some(DepthOps {}),
     };

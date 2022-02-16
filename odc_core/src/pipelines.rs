@@ -96,7 +96,7 @@ impl<'a> PipelinesFactory<'a> {
                 input.instance.raw_input_layout(),
             ]
         });
-        let input_layouts = match input_layouts.as_ref() {
+        let buffers = match input_layouts.as_ref() {
             Some(arr) => arr.as_slice(),
             None => [].as_slice(),
         };
@@ -104,7 +104,7 @@ impl<'a> PipelinesFactory<'a> {
         let vertex = wgpu::VertexState {
             module: &shader_module,
             entry_point: &info.shader.vs_main,
-            buffers: input_layouts,
+            buffers,
         };
 
         let layout = self.create_pipeline_layout(&info.bind_groups);
