@@ -163,12 +163,6 @@ pub enum InputItem {
     Unorm8x4,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum InputType {
-    PerVertex,
-    PerInstance,
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct BindGroup {
     pub uniform: Option<Binding<UniformInfo>>,
@@ -219,7 +213,6 @@ pub struct UniformInfo {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TextureInfo {
     pub texture: usize,
-    pub filterable: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

@@ -4,7 +4,7 @@ use crate::common::DrawDataTree;
 use common::{Example, mesh};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{DrawData, mdl::RenderModel, OdcCore, Pass, Stage};
+use odc_core::{DrawData, mdl::RenderModel, OdcCore, PassIndex, Stage};
 
 struct Triangle;
 
@@ -30,10 +30,7 @@ impl Example for Triangle {
     fn update(&mut self, _renderer: &OdcCore) {}
 
     fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![Pass {
-            index: 0,
-            pipelines: vec![0],
-        }]]
+        vec![vec![0]]
     }
 
     fn draw_data(&self) -> DrawDataTree {

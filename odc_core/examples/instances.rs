@@ -3,7 +3,7 @@ mod common;
 use crate::common::{DrawDataTree, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, PassIndex, Stage};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -43,10 +43,7 @@ impl Example for InstancesExample {
     }
 
     fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![Pass {
-            index: 0,
-            pipelines: vec![0],
-        }]]
+        vec![vec![0]]
     }
 
     fn draw_data(&self) -> DrawDataTree {

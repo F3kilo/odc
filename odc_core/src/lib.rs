@@ -126,7 +126,19 @@ impl OdcCore {
 
         let to_resize = self.model.connected_attachments(attachment);
         let factory = ResourceFactory::new(&self.device.device);
+
+        let mut broken_bind_groups = HashSet::new();
         for texture_index in to_resize {
+            broken_bind_groups.extend(self.model.bind_groups.iter().enumerate().filter_map(
+                |(i, bg)| {
+                    if bg.has_texture(texture_index) {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                },
+            ));
+
             let size = wgpu::Extent3d {
                 width: size.x as _,
                 height: size.y as _,
@@ -145,6 +157,11 @@ impl OdcCore {
                     window.refresh_bind_group(&self.device.device, &source_view);
                 }
             }
+        }
+
+        let factory = BindGroupFactory::new(&self.device.device, &self.resources);
+        for bind_group_index in broken_bind_groups {
+            factory.refresh_bind_group(&mut self.bind_groups.0[bind_group_index]);
         }
     }
 
@@ -181,8 +198,8 @@ impl OdcCore {
             .create_command_encoder(&Default::default());
 
         for stage in stages {
-            for pass in stage.iter() {
-                self.draw_pass(&mut encoder, data, pass)
+            for pass_index in stage.iter() {
+                self.draw_pass(&mut encoder, data, *pass_index)
             }
         }
 
@@ -202,9 +219,9 @@ impl OdcCore {
         &self,
         encoder: &mut wgpu::CommandEncoder,
         data: &impl DrawDataSource,
-        pass: &Pass,
+        pass_index: PassIndex,
     ) {
-        let pass_info = &self.model.passes[pass.index];
+        let pass_info = &self.model.passes[pass_index];
 
         let color_views: Vec<_> = pass_info
             .color_attachments
@@ -266,8 +283,8 @@ impl OdcCore {
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
 
-        for pipeline in &pass.pipelines {
-            self.draw_pipeline(&mut render_pass, pass.index, *pipeline, data);
+        for pipeline in &pass_info.pipelines {
+            self.draw_pipeline(&mut render_pass, pass_index, *pipeline, data);
         }
     }
 
@@ -364,7 +381,7 @@ impl OdcCore {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DrawData {
     pub indices: Range<u32>,
     pub base_vertex: i32,
@@ -375,8 +392,5 @@ pub trait DrawDataSource {
     fn draw_data(&self, pass: usize, pipeline: usize) -> &[DrawData];
 }
 
-pub type Stage = Vec<Pass>;
-pub struct Pass {
-    pub index: usize,
-    pub pipelines: Vec<usize>,
-}
+pub type Stage = Vec<PassIndex>;
+pub type PassIndex = usize;

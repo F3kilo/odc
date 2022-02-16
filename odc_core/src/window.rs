@@ -89,7 +89,7 @@ impl Window {
         texture_format: wgpu::TextureFormat,
     ) -> wgpu::BindGroupLayout {
         let sample_type = texture_format.describe().sample_type;
-        println!("PipelineLayout sample type: {:?}", sample_type);
+
         let ty = wgpu::BindingType::Texture {
             sample_type,
             view_dimension: wgpu::TextureViewDimension::D2,
@@ -132,7 +132,6 @@ impl Window {
     ) -> wgpu::RenderPipeline {
         let descriptor = match source_format.describe().sample_type {
             wgpu::TextureSampleType::Depth => {
-                println!("using depth window shader");
                 wgpu::include_wgsl!("../data/shaders/window_depth.wgsl")
             }
             _ => wgpu::include_wgsl!("../data/shaders/window.wgsl"),

@@ -1,9 +1,9 @@
 mod common;
 
-use crate::common::{DrawDataTree, Example, mesh, models};
+use crate::common::{mesh, models, DrawDataTree, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{DrawData, mdl::RenderModel, OdcCore, Pass, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, Stage};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder};
@@ -18,16 +18,23 @@ struct InstancesExample(Camera, Rotation);
 
 impl Example for InstancesExample {
     fn render_model() -> RenderModel {
-        models::color_mesh::color_mesh_model()
+        models::deferred::deferred_model()
     }
 
     fn windows() -> Vec<(usize, String, Size2d)> {
-        vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
+        vec![
+            (0, "position".into(), Size2d { x: 800, y: 600 }),
+            (1, "albedo".into(), Size2d { x: 800, y: 600 }),
+            (2, "light".into(), Size2d { x: 800, y: 600 }),
+        ]
     }
 
     fn init(&mut self, renderer: &OdcCore) {
+        let triangle_indices = [0, 1, 2];
+        renderer.write_index(&triangle_indices, 0);
+
         let (vertex_data, index_data) = mesh::rectangle_mesh();
-        renderer.write_index(index_data, 0);
+        renderer.write_index(index_data, 3);
         renderer.write_vertex(vertex_data, 0);
 
         let instance = Mat4::IDENTITY.to_cols_array_2d();
@@ -42,20 +49,29 @@ impl Example for InstancesExample {
     }
 
     fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![Pass {
-            index: 0,
-            pipelines: vec![0],
-        }]]
+        vec![vec![0, 1]]
     }
 
     fn draw_data(&self) -> DrawDataTree {
-        let draw = DrawData {
-            indices: 0..6,
+        let rect = DrawData {
+            indices: 3..9,
             base_vertex: 0,
             instances: 0..1,
         };
 
-        DrawDataTree(vec![vec![vec![draw]]])
+        let tri = DrawData {
+            indices: 0..3,
+            base_vertex: 0,
+            instances: 0..1,
+        };
+
+        let deferred_pipeline_draws = vec![rect];
+        let deferred_pass_draws = vec![deferred_pipeline_draws];
+
+        let light_pipeline_draws = vec![tri];
+        let light_pass_draws = vec![vec![], light_pipeline_draws];
+
+        DrawDataTree(vec![deferred_pass_draws, light_pass_draws])
     }
 }
 

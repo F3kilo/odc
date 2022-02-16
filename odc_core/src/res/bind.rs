@@ -1,5 +1,6 @@
 use crate::Resources;
 use std::num::NonZeroU64;
+use wgpu::TextureView;
 
 pub struct BindGroups(pub Vec<BindGroup>);
 
@@ -136,24 +137,59 @@ impl<'a> BindGroupFactory<'a> {
         Self { device, resources }
     }
 
+    pub fn refresh_bind_group(&self, bind_group: &mut BindGroup) {
+        let info = &bind_group.info;
+
+        let views = self.texture_views(&info.textures);
+        let entries = self.collect_entries(&info, views.iter());
+        let handle = self.create_raw_handle(&bind_group.layout, &entries);
+
+        bind_group.handle = handle;
+    }
+
     pub fn create_bind_group(&self, info: BindGroupInfo) -> BindGroup {
         let layout = self.create_bind_group_layout(&info);
 
+        let views = self.texture_views(&info.textures);
+        let entries = self.collect_entries(&info, views.iter());
+        let handle = self.create_raw_handle(&layout, &entries);
+
+        BindGroup {
+            handle,
+            layout,
+            info,
+        }
+    }
+
+    fn create_raw_handle(&self, layout: &wgpu::BindGroupLayout, entries: &[wgpu::BindGroupEntry]) -> wgpu::BindGroup {
+        let descriptor = wgpu::BindGroupDescriptor {
+            label: None,
+            layout,
+            entries,
+        };
+
+        self.device.create_bind_group(&descriptor)
+    }
+
+    fn collect_entries<'b, ViewsIter>(
+        &self,
+        info: &BindGroupInfo,
+        views: ViewsIter,
+    ) -> Vec<wgpu::BindGroupEntry<'b>>
+    where
+        'a: 'b,
+        ViewsIter: Iterator<Item = &'b TextureView>,
+    {
         let mut entries = Vec::with_capacity(info.bindings_count());
         entries.extend(info.uniform.iter().map(|b| {
             let buffer = &self.resources.buffers.uniform.handle;
             b.entry(buffer)
         }));
 
-        let views: Vec<_> = info
-            .textures
-            .iter()
-            .map(|b| self.resources.textures[b.info.texture_index].create_view())
-            .collect();
         entries.extend(
             info.textures
                 .iter()
-                .zip(views.iter())
+                .zip(views)
                 .map(|(b, view)| b.entry(view)),
         );
 
@@ -161,19 +197,14 @@ impl<'a> BindGroupFactory<'a> {
             let sampler = &self.resources.samplers[b.info.sampler_index];
             b.entry(&sampler.handle)
         }));
+        entries
+    }
 
-        let descriptor = wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &layout,
-            entries: &entries,
-        };
-
-        let handle = self.device.create_bind_group(&descriptor);
-        BindGroup {
-            handle,
-            layout,
-            info,
-        }
+    fn texture_views(&self, textures: &[Binding<TextureBindingInfo>]) -> Vec<wgpu::TextureView> {
+        textures
+            .iter()
+            .map(|b| self.resources.textures[b.info.texture_index].create_view())
+            .collect()
     }
 
     fn create_bind_group_layout(&self, info: &BindGroupInfo) -> wgpu::BindGroupLayout {

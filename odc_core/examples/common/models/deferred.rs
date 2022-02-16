@@ -1,13 +1,13 @@
-use odc_core::mdl::*;
 use super::{MAT4_SIZE, VEC4_SIZE};
+use odc_core::mdl::*;
 
 const UNIFORM_SIZE: u64 = MAT4_SIZE * 2;
 const WINDOW_SIZE: Size2d = Size2d { x: 800, y: 600 };
 
-pub fn color_mesh_model() -> RenderModel {
+pub fn deferred_model() -> RenderModel {
     let buffers = buffers();
     let textures = textures();
-    let samplers = vec![];
+    let samplers = samplers();
 
     let bind_groups = bind_groups();
     let pipelines = pipelines();
@@ -34,7 +34,16 @@ fn buffers() -> Buffers {
 }
 
 fn textures() -> Vec<Texture> {
-    let color_texture = Texture {
+    let position = Texture {
+        typ: TextureType::Color {
+            texel: TexelType::Float(BytesPerFloatTexel::Four),
+            texel_count: TexelCount::Four,
+        },
+        size: WINDOW_SIZE,
+        window_source: true,
+    };
+
+    let albedo = Texture {
         typ: TextureType::Color {
             texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
@@ -43,13 +52,27 @@ fn textures() -> Vec<Texture> {
         window_source: true,
     };
 
-    let depth_texture = Texture {
+    let light = Texture {
+        typ: TextureType::Color {
+            texel: TexelType::Unorm,
+            texel_count: TexelCount::Four,
+        },
+        size: WINDOW_SIZE,
+        window_source: true,
+    };
+
+    let depth = Texture {
         typ: TextureType::Depth,
         size: WINDOW_SIZE,
         window_source: true,
     };
 
-    vec![color_texture, depth_texture]
+    vec![position, albedo, light, depth]
+}
+
+fn samplers() -> Vec<Sampler> {
+    let position_sampler = Sampler::NonFilter;
+    vec![position_sampler]
 }
 
 fn bind_groups() -> Vec<BindGroup> {
@@ -61,15 +84,40 @@ fn bind_groups() -> Vec<BindGroup> {
             offset: 0,
         },
     };
-    let bind_group = BindGroup {
+
+    let deferred_group = BindGroup {
         uniform: Some(uniform),
         ..Default::default()
     };
 
-    vec![bind_group]
+    let position_texture = Binding {
+        index: 0,
+        shader_stages: ShaderStages::Fragment,
+        info: TextureInfo { texture: 0 },
+    };
+
+    let albedo_texture = Binding {
+        index: 1,
+        shader_stages: ShaderStages::Fragment,
+        info: TextureInfo { texture: 1 },
+    };
+
+    let position_sampler = Binding {
+        index: 2,
+        shader_stages: ShaderStages::Fragment,
+        info: SamplerInfo { sampler: 0 },
+    };
+
+    let light_group = BindGroup {
+        uniform: None,
+        textures: vec![position_texture, albedo_texture],
+        samplers: vec![position_sampler],
+    };
+
+    vec![deferred_group, light_group]
 }
 
-fn pipelines() -> Vec<RenderPipeline> {
+fn position_pipeline() -> RenderPipeline {
     let attributes = vec![
         InputAttribute {
             item: InputItem::Float32x4,
@@ -115,12 +163,12 @@ fn pipelines() -> Vec<RenderPipeline> {
     };
 
     let shader = Shader {
-        path: "odc_core/examples/shaders/color_mesh.wgsl".into(),
+        path: "odc_core/examples/shaders/deferred.wgsl".into(),
         vs_main: "vs_main".into(),
         fs_main: "fs_main".into(),
     };
 
-    let pipeline = RenderPipeline {
+    RenderPipeline {
         input: Some(PipelineInpit {
             vertex: vertex_buffer,
             instance: instance_buffer,
@@ -128,21 +176,75 @@ fn pipelines() -> Vec<RenderPipeline> {
         bind_groups: vec![0],
         shader,
         depth: Some(DepthOps {}),
+    }
+}
+
+fn light_pipeline() -> RenderPipeline {
+    let vertex_buffer = InputInfo {
+        attributes: vec![],
+        stride: 0,
     };
 
-    vec![pipeline]
+    let attributes = vec![InputAttribute {
+        item: InputItem::Float32x4,
+        offset: 0,
+        location: 0,
+    }];
+
+    let instance_buffer = InputInfo {
+        attributes,
+        stride: VEC4_SIZE,
+    };
+
+    let shader = Shader {
+        path: "odc_core/examples/shaders/deferred_light.wgsl".into(),
+        vs_main: "vs_main".into(),
+        fs_main: "fs_main".into(),
+    };
+
+    RenderPipeline {
+        input: Some(PipelineInpit {
+            vertex: vertex_buffer,
+            instance: instance_buffer,
+        }),
+        bind_groups: vec![1],
+        shader,
+        depth: None,
+    }
+}
+
+fn pipelines() -> Vec<RenderPipeline> {
+    vec![position_pipeline(), light_pipeline()]
 }
 
 fn passes() -> Vec<Pass> {
-    let pass = Pass {
-        pipelines: vec![0],
-        color_attachments: vec![Attachment {
-            texture: 0,
-            clear: Some([0.0, 0.0, 0.0, 1.0]),
-            store: true,
-        }],
-        depth_attachment: Some(DepthAttachment { texture: 1 }),
+    let position_attachment = Attachment {
+        texture: 0,
+        clear: Some([0.0, 0.0, 0.0, 0.0]),
+        store: true,
     };
 
-    vec![pass]
+    let albedo_attachment = Attachment {
+        texture: 1,
+        clear: Some([0.0, 0.0, 0.0, 0.0]),
+        store: true,
+    };
+
+    let deferred = Pass {
+        pipelines: vec![0],
+        color_attachments: vec![position_attachment, albedo_attachment],
+        depth_attachment: Some(DepthAttachment { texture: 3 }),
+    };
+
+    let light = Pass {
+        pipelines: vec![1],
+        color_attachments: vec![Attachment {
+            texture: 2,
+            clear: Some([0.0, 0.0, 0.0, 0.0]),
+            store: true,
+        }],
+        depth_attachment: None,
+    };
+
+    vec![deferred, light]
 }
