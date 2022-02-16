@@ -1,38 +1,63 @@
-#![allow(dead_code)]
-
+use super::{MAT4_SIZE, VEC4_SIZE};
 use odc_core::mdl::*;
-use std::mem;
 
-const VEC4_SIZE: u64 = mem::size_of::<[f32; 4]>() as _;
-const MAT4_SIZE: u64 = VEC4_SIZE * 4;
+const UNIFORM_SIZE: u64 = MAT4_SIZE * 2;
+const WINDOW_SIZE: Size2d = Size2d { x: 800, y: 600 };
 
 pub fn color_mesh_model() -> RenderModel {
-    let window_size = Size2d { x: 800, y: 600 };
+    let buffers = buffers();
+    let textures = textures();
+    let samplers = vec![];
 
+    let bind_groups = bind_groups();
+    let pipelines = pipelines();
+
+    let passes = passes();
+
+    RenderModel {
+        passes,
+        pipelines,
+        bind_groups,
+        textures,
+        buffers,
+        samplers,
+    }
+}
+
+fn buffers() -> Buffers {
+    Buffers {
+        index: 2u64.pow(10),
+        vertex: 2u64.pow(10),
+        instance: 2u64.pow(16),
+        uniform: UNIFORM_SIZE,
+    }
+}
+
+fn textures() -> Vec<Texture> {
     let color_texture = Texture {
         typ: TextureType::Color {
             texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
         },
-        size: window_size,
+        size: WINDOW_SIZE,
         window_source: true,
     };
 
     let depth_texture = Texture {
         typ: TextureType::Depth,
-        size: window_size,
+        size: WINDOW_SIZE,
         window_source: true,
     };
-    let textures = vec![color_texture, depth_texture];
 
-    let samplers = vec![];
+    vec![color_texture, depth_texture]
+}
 
-    let uniform_size = MAT4_SIZE * 2;
+fn bind_groups() -> Vec<BindGroup> {
     let uniform = Binding {
         index: 0,
         shader_stages: ShaderStages::Vertex,
         info: UniformInfo {
-            size: uniform_size,
+            size: UNIFORM_SIZE,
             offset: 0,
         },
     };
@@ -40,8 +65,11 @@ pub fn color_mesh_model() -> RenderModel {
         uniform: Some(uniform),
         ..Default::default()
     };
-    let bind_groups = vec![bind_group];
 
+    vec![bind_group]
+}
+
+fn pipelines() -> Vec<RenderPipeline> {
     let attributes = vec![
         InputAttribute {
             item: InputItem::Float32x4,
@@ -98,11 +126,15 @@ pub fn color_mesh_model() -> RenderModel {
             instance: instance_buffer,
         }),
         bind_groups: vec![0],
+        blend: vec![None],
         shader,
         depth: Some(DepthOps {}),
     };
-    let pipelines = vec![pipeline];
 
+    vec![pipeline]
+}
+
+fn passes() -> Vec<Pass> {
     let pass = Pass {
         pipelines: vec![0],
         color_attachments: vec![Attachment {
@@ -113,23 +145,5 @@ pub fn color_mesh_model() -> RenderModel {
         depth_attachment: Some(DepthAttachment { texture: 1 }),
     };
 
-    let passes = vec![pass];
-
-    let buffers = Buffers {
-        index: 2u64.pow(10),
-        vertex: 2u64.pow(10),
-        instance: 2u64.pow(16),
-        uniform: uniform_size,
-    };
-
-    RenderModel {
-        passes,
-        pipelines,
-        bind_groups,
-        textures,
-        buffers,
-        samplers,
-    }
+    vec![pass]
 }
-
-fn main() {}

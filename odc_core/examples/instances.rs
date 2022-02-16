@@ -1,10 +1,9 @@
 mod common;
-mod models;
 
 use crate::common::{DrawDataTree, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, PassIndex, Stage};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -19,7 +18,7 @@ struct InstancesExample(Camera, CameraMovement);
 
 impl Example for InstancesExample {
     fn render_model() -> RenderModel {
-        models::color_mesh_model()
+        common::models::color_mesh::color_mesh_model()
     }
 
     fn windows() -> Vec<(usize, String, Size2d)> {
@@ -27,7 +26,7 @@ impl Example for InstancesExample {
     }
 
     fn init(&mut self, renderer: &OdcCore) {
-        let (vertex_data, index_data) = common::triangle_mesh();
+        let (vertex_data, index_data) = common::mesh::triangle_mesh();
         renderer.write_index(index_data, 0);
         renderer.write_vertex(vertex_data, 0);
 
@@ -44,10 +43,7 @@ impl Example for InstancesExample {
     }
 
     fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![Pass {
-            index: 0,
-            pipelines: vec![0],
-        }]]
+        vec![vec![0]]
     }
 
     fn draw_data(&self) -> DrawDataTree {

@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
+pub use wgpu::{BlendState, BlendComponent, BlendFactor, BlendOperation};
 
 #[derive(Debug, Clone)]
 pub struct RenderModel {
@@ -97,6 +98,7 @@ pub struct RenderPipeline {
     pub input: Option<PipelineInpit>,
     pub bind_groups: Vec<usize>,
     pub shader: Shader,
+    pub blend: Vec<Option<BlendState>>,
     pub depth: Option<DepthOps>,
 }
 
@@ -163,12 +165,6 @@ pub enum InputItem {
     Unorm8x4,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum InputType {
-    PerVertex,
-    PerInstance,
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct BindGroup {
     pub uniform: Option<Binding<UniformInfo>>,
@@ -219,7 +215,6 @@ pub struct UniformInfo {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TextureInfo {
     pub texture: usize,
-    pub filterable: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

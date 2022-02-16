@@ -198,12 +198,13 @@ impl<'a> ModelParser<'a> {
                 return pass
                     .color_attachments
                     .iter()
-                    .map(|attachment| {
+                    .zip(model.pipelines[pipeline_index].blend.iter().copied())
+                    .map(|(attachment, blend)| {
                         let texture_type = model.textures[attachment.texture].typ;
                         let format = Self::parse_texture_format(texture_type);
                         wgpu::ColorTargetState {
                             format,
-                            blend: None,
+                            blend,
                             write_mask: Default::default(),
                         }
                     })

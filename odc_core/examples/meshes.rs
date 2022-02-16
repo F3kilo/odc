@@ -1,10 +1,9 @@
 mod common;
-mod models;
 
 use crate::common::{DrawDataTree, Example};
 use glam::{Mat4, Quat, Vec3};
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, Pass, Stage};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, Stage};
 use std::f32::consts::PI;
 use vp_cam::{Camera, CameraBuilder};
 
@@ -16,7 +15,7 @@ struct MeshesExample;
 
 impl Example for MeshesExample {
     fn render_model() -> RenderModel {
-        models::color_mesh_model()
+        common::models::color_mesh::color_mesh_model()
     }
 
     fn windows() -> Vec<(usize, String, Size2d)> {
@@ -27,13 +26,13 @@ impl Example for MeshesExample {
     }
 
     fn init(&mut self, renderer: &OdcCore) {
-        let (vertex_data, index_data) = common::triangle_mesh();
+        let (vertex_data, index_data) = common::mesh::triangle_mesh();
         renderer.write_index(index_data, 0);
         renderer.write_vertex(vertex_data, 0);
 
         let vertex_offset = vertex_data.len();
         let index_offset = index_data.len();
-        let (vertex_data, index_data) = common::rectangle_mesh();
+        let (vertex_data, index_data) = common::mesh::rectangle_mesh();
         renderer.write_index(index_data, index_offset as _);
         renderer.write_vertex(vertex_data, vertex_offset as _);
 
@@ -58,10 +57,7 @@ impl Example for MeshesExample {
     fn update(&mut self, _renderer: &OdcCore) {}
 
     fn draw_stages(&self) -> Vec<Stage> {
-        vec![vec![Pass {
-            index: 0,
-            pipelines: vec![0],
-        }]]
+        vec![vec![0]]
     }
 
     fn draw_data(&self) -> DrawDataTree {
