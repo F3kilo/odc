@@ -228,6 +228,12 @@ pub struct Size2d {
     pub y: u64,
 }
 
+impl From<(u64, u64)> for Size2d {
+    fn from((x, y): (u64, u64)) -> Self {
+        Self { x, y }
+    }
+}
+
 impl Size2d {
     pub fn is_zero(&self) -> bool {
         self.x * self.y == 0
@@ -248,6 +254,7 @@ pub enum TextureType {
         texel: TexelType,
         texel_count: TexelCount,
     },
+    Srgb,
     Depth,
 }
 

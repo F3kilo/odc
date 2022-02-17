@@ -306,6 +306,7 @@ impl<'a> ModelParser<'a> {
             mdl::TextureType::Color { texel, texel_count } => {
                 Self::parse_color_format(texel, texel_count)
             }
+            mdl::TextureType::Srgb => wgpu::TextureFormat::Rgba8UnormSrgb,
             mdl::TextureType::Depth => wgpu::TextureFormat::Depth32Float,
         }
     }
