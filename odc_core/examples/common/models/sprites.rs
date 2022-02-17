@@ -4,10 +4,10 @@ use odc_core::mdl::*;
 const UNIFORM_SIZE: u64 = MAT4_SIZE * 2;
 const WINDOW_SIZE: Size2d = Size2d { x: 800, y: 600 };
 
-pub fn color_mesh_model() -> RenderModel {
+pub fn sprites_model() -> RenderModel {
     let buffers = buffers();
     let textures = textures();
-    let samplers = vec![];
+    let samplers = samplers();
 
     let bind_groups = bind_groups();
     let pipelines = pipelines();
@@ -51,7 +51,19 @@ fn textures() -> Vec<Texture> {
         writable: false,
     };
 
-    vec![color_texture, depth_texture]
+    let sprite_atlas = Texture {
+        typ: TextureType::Srgb,
+        size: (256, 128).into(),
+        window_source: true,
+        writable: true,
+    };
+
+    vec![color_texture, depth_texture, sprite_atlas]
+}
+
+fn samplers() -> Vec<Sampler> {
+    let sprite = Sampler::Filter(FilterMode::Linear);
+    vec![sprite]
 }
 
 fn bind_groups() -> Vec<BindGroup> {
@@ -63,9 +75,23 @@ fn bind_groups() -> Vec<BindGroup> {
             offset: 0,
         },
     };
+
+    let sprite = Binding {
+        index: 1,
+        shader_stages: ShaderStages::Fragment,
+        info: TextureInfo { texture: 2 },
+    };
+
+    let sampler = Binding {
+        index: 2,
+        shader_stages: ShaderStages::Fragment,
+        info: SamplerInfo { sampler: 0 },
+    };
+
     let bind_group = BindGroup {
         uniform: Some(uniform),
-        ..Default::default()
+        textures: vec![sprite],
+        samplers: vec![sampler],
     };
 
     vec![bind_group]
@@ -110,14 +136,20 @@ fn pipelines() -> Vec<RenderPipeline> {
             offset: VEC4_SIZE * 3,
             location: 5,
         },
+        InputAttribute {
+            item: InputItem::Float32x4,
+            offset: VEC4_SIZE * 4,
+            location: 6,
+        },
     ];
+
     let instance_buffer = InputInfo {
         attributes,
-        stride: MAT4_SIZE,
+        stride: MAT4_SIZE + VEC4_SIZE,
     };
 
     let shader = Shader {
-        path: "odc_core/examples/shaders/color_mesh.wgsl".into(),
+        path: "odc_core/examples/shaders/sprites.wgsl".into(),
         vs_main: "vs_main".into(),
         fs_main: "fs_main".into(),
     };
@@ -128,9 +160,9 @@ fn pipelines() -> Vec<RenderPipeline> {
             instance: instance_buffer,
         }),
         bind_groups: vec![0],
-        blend: vec![None],
+        blend: vec![Some(BlendState::ALPHA_BLENDING)],
         shader,
-        depth: Some(DepthOps {}),
+        depth: None,
     };
 
     vec![pipeline]
@@ -141,10 +173,10 @@ fn passes() -> Vec<Pass> {
         pipelines: vec![0],
         color_attachments: vec![Attachment {
             texture: 0,
-            clear: Some([0.0, 0.0, 0.0, 1.0]),
+            clear: Some([0.0, 0.0, 0.0, 0.0]),
             store: true,
         }],
-        depth_attachment: Some(DepthAttachment { texture: 1 }),
+        depth_attachment: None,
     };
 
     vec![pass]

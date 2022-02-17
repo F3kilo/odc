@@ -41,6 +41,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     let albedo = Texture {
@@ -50,6 +51,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     let light = Texture {
@@ -59,6 +61,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     let final_tex = Texture {
@@ -68,12 +71,14 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     let depth = Texture {
         typ: TextureType::Depth,
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     vec![position, albedo, light, depth, final_tex]

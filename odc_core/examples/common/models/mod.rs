@@ -5,3 +5,4 @@ const MAT4_SIZE: u64 = VEC4_SIZE * 4;
 
 pub mod color_mesh;
 pub mod deferred;
+pub mod sprites;

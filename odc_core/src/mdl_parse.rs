@@ -64,6 +64,10 @@ impl<'a> ModelParser<'a> {
                 usages |= wgpu::TextureUsages::RENDER_ATTACHMENT;
             }
 
+            if texture_model.writable {
+                usages |= wgpu::TextureUsages::COPY_DST;
+            }
+
             TextureInfo {
                 format: Self::parse_texture_format(texture_model.typ),
                 size,
@@ -302,6 +306,7 @@ impl<'a> ModelParser<'a> {
             mdl::TextureType::Color { texel, texel_count } => {
                 Self::parse_color_format(texel, texel_count)
             }
+            mdl::TextureType::Srgb => wgpu::TextureFormat::Rgba8UnormSrgb,
             mdl::TextureType::Depth => wgpu::TextureFormat::Depth32Float,
         }
     }

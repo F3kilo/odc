@@ -9,6 +9,7 @@ use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
 use std::collections::{HashMap, HashSet};
 use std::mem;
+use std::num::NonZeroU32;
 use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
@@ -189,6 +190,40 @@ impl OdcCore {
         let data = bytemuck::cast_slice(data);
         let offset = mem::size_of::<T>() as u64 * offset;
         self.device.queue.write_buffer(buffer, offset, data);
+    }
+
+    pub fn write_texture(&self, texture: TextureWrite, data: TextureData) {
+        let tex = &self.resources.textures[texture.index];
+
+        let origin = wgpu::Origin3d {
+            x: texture.offset.x as _,
+            y: texture.offset.y as _,
+            z: 0,
+        };
+
+        let texture_copy = wgpu::ImageCopyTexture {
+            texture: &tex.handle,
+            aspect: wgpu::TextureAspect::All,
+            mip_level: 0,
+            origin,
+        };
+
+        let bytes_per_row = NonZeroU32::new(data.bytes_per_row as _);
+        let layout = wgpu::ImageDataLayout {
+            offset: 0,
+            bytes_per_row,
+            rows_per_image: None,
+        };
+
+        let size = wgpu::Extent3d {
+            width: texture.size.x as _,
+            height: texture.size.y as _,
+            depth_or_array_layers: 1,
+        };
+
+        self.device
+            .queue
+            .write_texture(texture_copy, data.data, layout, size);
     }
 
     pub fn draw<'a, RenderIter>(&'a self, steps: RenderIter)
@@ -407,4 +442,15 @@ pub struct RenderStep<'a> {
     pub pass: usize,
     pub pipeline: usize,
     pub data: &'a [DrawData],
+}
+
+pub struct TextureWrite {
+    pub index: usize,
+    pub offset: mdl::Size2d,
+    pub size: mdl::Size2d,
+}
+
+pub struct TextureData<'a> {
+    pub data: &'a [u8],
+    pub bytes_per_row: usize,
 }
