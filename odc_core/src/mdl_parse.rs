@@ -64,6 +64,10 @@ impl<'a> ModelParser<'a> {
                 usages |= wgpu::TextureUsages::RENDER_ATTACHMENT;
             }
 
+            if texture_model.writable {
+                usages |= wgpu::TextureUsages::COPY_DST;
+            }
+
             TextureInfo {
                 format: Self::parse_texture_format(texture_model.typ),
                 size,

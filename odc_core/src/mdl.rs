@@ -239,6 +239,7 @@ pub struct Texture {
     pub typ: TextureType,
     pub size: Size2d,
     pub window_source: bool,
+    pub writable: bool,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

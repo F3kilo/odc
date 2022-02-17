@@ -40,7 +40,5 @@ fn main() {
 ```
 
 ## Next steps
-- Select sampler info source of truth
-- Sample type from texture format
-- Different layouts for differen source texture types for windows
-- Remove samplers from model
+- Cybe textures.
+- sRGB textures.

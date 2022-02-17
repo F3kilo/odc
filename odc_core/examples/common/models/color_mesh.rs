@@ -41,12 +41,14 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     let depth_texture = Texture {
         typ: TextureType::Depth,
         size: WINDOW_SIZE,
         window_source: true,
+        writable: false,
     };
 
     vec![color_texture, depth_texture]
