@@ -13,4 +13,6 @@ pub struct TextureInfo {
     pub format: wgpu::TextureFormat,
     pub size: wgpu::Extent3d,
     pub usages: wgpu::TextureUsages,
+    pub mip_levels: u32,
+    pub sample_count: u32,
 }

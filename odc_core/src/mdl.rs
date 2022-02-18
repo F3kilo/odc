@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
-pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState};
+pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Extent3d};
 
 #[derive(Debug, Clone)]
 pub struct RenderModel {
@@ -224,13 +224,23 @@ pub struct SamplerInfo {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 pub struct Size2d {
-    pub x: u64,
-    pub y: u64,
+    pub x: u32,
+    pub y: u32,
 }
 
-impl From<(u64, u64)> for Size2d {
-    fn from((x, y): (u64, u64)) -> Self {
+impl From<(u32, u32)> for Size2d {
+    fn from((x, y): (u32, u32)) -> Self {
         Self { x, y }
+    }
+}
+
+impl From<Size2d> for wgpu::Extent3d {
+    fn from(s: Size2d) -> Self {
+        Extent3d {
+            width: s.x as _,
+            height: s.y as _,
+            depth_or_array_layers: 1,
+        }
     }
 }
 
@@ -243,7 +253,9 @@ impl Size2d {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Texture {
     pub typ: TextureType,
-    pub size: Size2d,
+    pub size: Extent3d,
+    pub mip_levels: u32,
+    pub sample_count: u32,
     pub window_source: bool,
     pub writable: bool,
 }

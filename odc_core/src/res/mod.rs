@@ -44,8 +44,8 @@ impl<'a> ResourceFactory<'a> {
             format: info.format,
             usage: info.usages,
             dimension: wgpu::TextureDimension::D2,
-            mip_level_count: 1,
-            sample_count: 1,
+            mip_level_count: info.mip_levels,
+            sample_count: info.sample_count,
         });
 
         Texture { handle, info }

@@ -39,21 +39,28 @@ fn textures() -> Vec<Texture> {
             texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
         },
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
 
     let depth_texture = Texture {
         typ: TextureType::Depth,
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
 
+    let atlas_size = Size2d::from((256, 128));
     let sprite_atlas = Texture {
         typ: TextureType::Srgb,
-        size: (256, 128).into(),
+        size: atlas_size.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: true,
     };

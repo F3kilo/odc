@@ -39,7 +39,9 @@ fn textures() -> Vec<Texture> {
             texel: TexelType::Float(BytesPerFloatTexel::Four),
             texel_count: TexelCount::Four,
         },
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
@@ -49,7 +51,9 @@ fn textures() -> Vec<Texture> {
             texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
         },
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
@@ -59,7 +63,9 @@ fn textures() -> Vec<Texture> {
             texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
         },
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
@@ -69,14 +75,18 @@ fn textures() -> Vec<Texture> {
             texel: TexelType::Unorm,
             texel_count: TexelCount::Four,
         },
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
 
     let depth = Texture {
         typ: TextureType::Depth,
-        size: WINDOW_SIZE,
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
+        sample_count: 1,
         window_source: true,
         writable: false,
     };
