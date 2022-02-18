@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
-pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Extent3d};
+pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Extent3d, Origin3d};
 
 #[derive(Debug, Clone)]
 pub struct RenderModel {
@@ -231,6 +231,12 @@ pub struct Size2d {
 impl From<(u32, u32)> for Size2d {
     fn from((x, y): (u32, u32)) -> Self {
         Self { x, y }
+    }
+}
+
+impl From<u32> for Size2d {
+    fn from(size: u32) -> Self {
+        Self { x: size, y: size }
     }
 }
 

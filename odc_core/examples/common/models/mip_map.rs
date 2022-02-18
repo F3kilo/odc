@@ -4,7 +4,7 @@ use odc_core::mdl::*;
 const UNIFORM_SIZE: u64 = MAT4_SIZE * 2;
 const WINDOW_SIZE: Size2d = Size2d { x: 800, y: 600 };
 
-pub fn sprites_model() -> RenderModel {
+pub fn mip_map_model() -> RenderModel {
     let buffers = buffers();
     let textures = textures();
     let samplers = samplers();
@@ -46,21 +46,21 @@ fn textures() -> Vec<Texture> {
         writable: false,
     };
 
-    let atlas_size = Size2d::from((256, 128));
-    let sprite_atlas = Texture {
+    let size = Size2d::from((256, 256)).into();
+    let mip_mapped = Texture {
         typ: TextureType::Srgb,
-        size: atlas_size.into(),
-        mip_levels: 1,
+        size,
+        mip_levels: size.max_mips(),
         sample_count: 1,
         window_source: true,
         writable: true,
     };
 
-    vec![color_texture, sprite_atlas]
+    vec![color_texture, mip_mapped]
 }
 
 fn samplers() -> Vec<Sampler> {
-    let sprite = Sampler::Filter(FilterMode::Linear);
+    let sprite = Sampler::NonFilter;
     vec![sprite]
 }
 
