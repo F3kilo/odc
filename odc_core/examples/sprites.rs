@@ -113,7 +113,6 @@ fn load_image<P: AsRef<Path>>(path: P) -> Vec<u8> {
     let buffered = BufReader::new(file);
     let image = image::load(buffered, ImageFormat::Png).unwrap();
     let data = image.into_rgba8().as_bytes().to_vec();
-    println!("Image data len: {}", data.len());
     data
 }
 

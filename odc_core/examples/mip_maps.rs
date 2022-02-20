@@ -72,7 +72,6 @@ fn write_image(renderer: &OdcCore) {
             index: 1,
         };
 
-        println!("Write tex with props: {:?}", write);
         renderer.write_texture(write, layout);
     }
 }
