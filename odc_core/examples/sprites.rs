@@ -5,7 +5,7 @@ use common::{mesh, Example};
 use glam::{Mat4, Quat};
 use image::{EncodableLayout, ImageFormat};
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite};
+use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite};
 use std::fs;
 use std::io::BufReader;
 use std::path::Path;
@@ -74,15 +74,18 @@ impl Example for Sprite {
 fn write_images(renderer: &OdcCore) {
     let data = load_image("odc_core/examples/data/planet.png");
 
+    let size = Size2d::from((128, 128)).into();
     let write = TextureWrite {
-        size: (128, 128).into(),
-        offset: (0, 0).into(),
-        index: 2,
+        size,
+        offset: mdl::Origin3d::ZERO,
+        mip_level: 0,
+        index: 1,
     };
 
     let data = TextureData {
-        bytes_per_row: 128 * 4,
         data: &data,
+        bytes_per_row: 128 * 4,
+        rows_per_layer: 0,
     };
 
     renderer.write_texture(write, data);
@@ -90,14 +93,16 @@ fn write_images(renderer: &OdcCore) {
     let data = load_image("odc_core/examples/data/black_hole.png");
 
     let write = TextureWrite {
-        size: (128, 128).into(),
-        offset: (128, 0).into(),
-        index: 2,
+        size,
+        offset: mdl::Origin3d { x: 128, y: 0, z: 0 },
+        mip_level: 0,
+        index: 1,
     };
 
     let data = TextureData {
         bytes_per_row: 128 * 4,
         data: &data,
+        rows_per_layer: 0,
     };
 
     renderer.write_texture(write, data);
@@ -108,7 +113,6 @@ fn load_image<P: AsRef<Path>>(path: P) -> Vec<u8> {
     let buffered = BufReader::new(file);
     let image = image::load(buffered, ImageFormat::Png).unwrap();
     let data = image.into_rgba8().as_bytes().to_vec();
-    println!("Image data len: {}", data.len());
     data
 }
 

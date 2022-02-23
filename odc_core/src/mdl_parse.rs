@@ -8,7 +8,6 @@ use crate::res::{
 };
 use std::fs;
 use std::num::NonZeroU8;
-use wgpu::Extent3d;
 
 pub struct ModelParser<'a> {
     model: &'a mdl::RenderModel,
@@ -50,11 +49,6 @@ impl<'a> ModelParser<'a> {
     pub fn textures_info(&self) -> impl Iterator<Item = TextureInfo> + 'a {
         let model = self.model;
         model.textures.iter().enumerate().map(|(i, texture_model)| {
-            let size = Extent3d {
-                width: texture_model.size.x as _,
-                height: texture_model.size.y as _,
-                depth_or_array_layers: 1,
-            };
             let mut usages = wgpu::TextureUsages::empty();
             if model.has_texture_binding(i) || texture_model.window_source {
                 usages |= wgpu::TextureUsages::TEXTURE_BINDING;
@@ -70,7 +64,9 @@ impl<'a> ModelParser<'a> {
 
             TextureInfo {
                 format: Self::parse_texture_format(texture_model.typ),
-                size,
+                size: texture_model.size,
+                mip_levels: texture_model.mip_levels,
+                sample_count: texture_model.sample_count,
                 usages,
             }
         })

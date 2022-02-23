@@ -53,6 +53,5 @@ var color_sampler: sampler;
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
     let color = textureSample(sprite, color_sampler, in.uvs);
-    let corrected = pow(color, vec4<f32>(2.2)); // gamma correction for srgb target
     return color;
 }

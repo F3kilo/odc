@@ -195,35 +195,24 @@ impl OdcCore {
     pub fn write_texture(&self, texture: TextureWrite, data: TextureData) {
         let tex = &self.resources.textures[texture.index];
 
-        let origin = wgpu::Origin3d {
-            x: texture.offset.x as _,
-            y: texture.offset.y as _,
-            z: 0,
-        };
-
         let texture_copy = wgpu::ImageCopyTexture {
             texture: &tex.handle,
             aspect: wgpu::TextureAspect::All,
-            mip_level: 0,
-            origin,
+            mip_level: texture.mip_level,
+            origin: texture.offset,
         };
 
-        let bytes_per_row = NonZeroU32::new(data.bytes_per_row as _);
+        let bytes_per_row = NonZeroU32::new(data.bytes_per_row);
+        let rows_per_image = NonZeroU32::new(data.rows_per_layer);
         let layout = wgpu::ImageDataLayout {
             offset: 0,
             bytes_per_row,
-            rows_per_image: None,
-        };
-
-        let size = wgpu::Extent3d {
-            width: texture.size.x as _,
-            height: texture.size.y as _,
-            depth_or_array_layers: 1,
+            rows_per_image,
         };
 
         self.device
             .queue
-            .write_texture(texture_copy, data.data, layout, size);
+            .write_texture(texture_copy, data.data, layout, texture.size);
     }
 
     pub fn draw<'a, RenderIter>(&'a self, steps: RenderIter)
@@ -444,13 +433,17 @@ pub struct RenderStep<'a> {
     pub data: &'a [DrawData],
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct TextureWrite {
     pub index: usize,
-    pub offset: mdl::Size2d,
-    pub size: mdl::Size2d,
+    pub mip_level: u32,
+    pub offset: mdl::Origin3d,
+    pub size: mdl::Extent3d,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct TextureData<'a> {
     pub data: &'a [u8],
-    pub bytes_per_row: usize,
+    pub bytes_per_row: u32,
+    pub rows_per_layer: u32,
 }
