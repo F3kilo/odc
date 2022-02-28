@@ -64,8 +64,12 @@ fn textures() -> Vec<Texture> {
 }
 
 fn samplers() -> Vec<Sampler> {
-    let color = Sampler::Filter(FilterMode::Linear);
-    vec![color]
+    let typ = SamplerType::Filter(FilterMode::Linear);
+    let sampler = Sampler {
+        typ,
+        ..Default::default()
+    };
+    vec![sampler]
 }
 
 fn bind_groups() -> Vec<BindGroup> {

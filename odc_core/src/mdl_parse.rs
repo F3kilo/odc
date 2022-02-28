@@ -1,4 +1,5 @@
 use crate::mdl;
+use crate::mdl::AddressMode;
 use crate::pipelines::{
     InputBufferLayout, RenderPipelineInfo, RenderPipelineInput, RenderShaderInfo,
 };
@@ -76,22 +77,25 @@ impl<'a> ModelParser<'a> {
 
     pub fn samplers_info(&self) -> impl Iterator<Item = SamplerInfo> + 'a {
         self.model.samplers.iter().map(|sampler_model| SamplerInfo {
-            mode: Self::parse_filter_mode(*sampler_model),
-            compare: Self::parse_comparison(*sampler_model),
-            anisotropy: Self::parse_anisotropy(*sampler_model),
+            mode: Self::parse_filter_mode(sampler_model.typ),
+            compare: Self::parse_comparison(sampler_model.typ),
+            anisotropy: Self::parse_anisotropy(sampler_model.typ),
+            u_address: Self::parse_address_mode(sampler_model.u_address),
+            v_address: Self::parse_address_mode(sampler_model.v_address),
+            w_address: Self::parse_address_mode(sampler_model.w_address),
         })
     }
 
-    pub fn parse_filter_mode(sampler_model: mdl::Sampler) -> wgpu::FilterMode {
+    pub fn parse_filter_mode(sampler_model: mdl::SamplerType) -> wgpu::FilterMode {
         match sampler_model {
-            mdl::Sampler::NonFilter => wgpu::FilterMode::Nearest,
-            mdl::Sampler::Filter(_) => wgpu::FilterMode::Linear,
-            mdl::Sampler::Comparison(_) => wgpu::FilterMode::Nearest,
+            mdl::SamplerType::NonFilter => wgpu::FilterMode::Nearest,
+            mdl::SamplerType::Filter(_) => wgpu::FilterMode::Linear,
+            mdl::SamplerType::Comparison(_) => wgpu::FilterMode::Nearest,
         }
     }
 
-    pub fn parse_comparison(sampler_model: mdl::Sampler) -> Option<wgpu::CompareFunction> {
-        if let mdl::Sampler::Comparison(mode) = sampler_model {
+    pub fn parse_comparison(sampler_model: mdl::SamplerType) -> Option<wgpu::CompareFunction> {
+        if let mdl::SamplerType::Comparison(mode) = sampler_model {
             let mode = match mode {
                 mdl::CompareMode::Never => wgpu::CompareFunction::Never,
                 mdl::CompareMode::Less => wgpu::CompareFunction::Less,
@@ -108,8 +112,8 @@ impl<'a> ModelParser<'a> {
         None
     }
 
-    pub fn parse_anisotropy(sampler_model: mdl::Sampler) -> Option<NonZeroU8> {
-        if let mdl::Sampler::Filter(mdl::FilterMode::Anisotropic(level)) = sampler_model {
+    pub fn parse_anisotropy(sampler_model: mdl::SamplerType) -> Option<NonZeroU8> {
+        if let mdl::SamplerType::Filter(mdl::FilterMode::Anisotropic(level)) = sampler_model {
             let level = match level {
                 mdl::AnisotropyLevel::One => NonZeroU8::new(1),
                 mdl::AnisotropyLevel::Two => NonZeroU8::new(2),
@@ -121,6 +125,14 @@ impl<'a> ModelParser<'a> {
             return level;
         }
         None
+    }
+
+    pub fn parse_address_mode(mode: mdl::AddressMode) -> wgpu::AddressMode {
+        match mode {
+            AddressMode::Edge => wgpu::AddressMode::ClampToEdge,
+            AddressMode::Repeat => wgpu::AddressMode::Repeat,
+            AddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+        }
     }
 
     pub fn bind_groups_info(&self) -> impl Iterator<Item = BindGroupInfo> + 'a {
@@ -154,13 +166,17 @@ impl<'a> ModelParser<'a> {
             let samplers = bg
                 .samplers
                 .iter()
-                .map(|sampler_model| Binding {
-                    index: sampler_model.index,
-                    visibility: Self::parse_visibility(sampler_model.shader_stages),
-                    info: SamplerBindingInfo {
-                        sampler_index: sampler_model.info.sampler,
-                        typ: Self::parse_sampler_type(model.samplers[sampler_model.info.sampler]),
-                    },
+                .map(|sampler_model| {
+                    let sampler_index = sampler_model.info.sampler;
+                    let sampler = model.samplers[sampler_index];
+                    Binding {
+                        index: sampler_model.index,
+                        visibility: Self::parse_visibility(sampler_model.shader_stages),
+                        info: SamplerBindingInfo {
+                            sampler_index,
+                            typ: Self::parse_sampler_type(sampler.typ),
+                        },
+                    }
                 })
                 .collect();
 
@@ -295,11 +311,11 @@ impl<'a> ModelParser<'a> {
         }
     }
 
-    fn parse_sampler_type(model: mdl::Sampler) -> wgpu::SamplerBindingType {
+    fn parse_sampler_type(model: mdl::SamplerType) -> wgpu::SamplerBindingType {
         match model {
-            mdl::Sampler::NonFilter => wgpu::SamplerBindingType::NonFiltering,
-            mdl::Sampler::Filter(_) => wgpu::SamplerBindingType::Filtering,
-            mdl::Sampler::Comparison(_) => wgpu::SamplerBindingType::Comparison,
+            mdl::SamplerType::NonFilter => wgpu::SamplerBindingType::NonFiltering,
+            mdl::SamplerType::Filter(_) => wgpu::SamplerBindingType::Filtering,
+            mdl::SamplerType::Comparison(_) => wgpu::SamplerBindingType::Comparison,
         }
     }
 
