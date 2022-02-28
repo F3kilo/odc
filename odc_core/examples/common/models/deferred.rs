@@ -41,7 +41,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -53,7 +53,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -65,7 +65,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -77,7 +77,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -86,7 +86,7 @@ fn textures() -> Vec<Texture> {
         typ: TextureType::Depth,
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -228,6 +228,7 @@ fn position_pipeline() -> RenderPipeline {
         shader,
         blend: vec![None, None],
         depth: Some(DepthOps {}),
+        multisampled: false,
     }
 }
 
@@ -278,6 +279,7 @@ fn light_pipeline() -> RenderPipeline {
         shader,
         blend: vec![Some(blend)],
         depth: None,
+        multisampled: false,
     }
 }
 
@@ -294,6 +296,7 @@ fn final_pipeline() -> RenderPipeline {
         shader,
         blend: vec![None],
         depth: None,
+        multisampled: false,
     }
 }
 
@@ -304,12 +307,14 @@ fn pipelines() -> Vec<RenderPipeline> {
 fn passes() -> Vec<Pass> {
     let position_attachment = Attachment {
         texture: 0,
+        resolve: None,
         clear: Some([0.0, 0.0, 0.0, 0.0]),
         store: true,
     };
 
     let albedo_attachment = Attachment {
         texture: 1,
+        resolve: None,
         clear: Some([0.0, 0.0, 0.0, 0.0]),
         store: true,
     };
@@ -324,6 +329,7 @@ fn passes() -> Vec<Pass> {
         pipelines: vec![1],
         color_attachments: vec![Attachment {
             texture: 2,
+            resolve: None,
             clear: Some([0.0, 0.0, 0.0, 0.0]),
             store: true,
         }],
@@ -334,6 +340,7 @@ fn passes() -> Vec<Pass> {
         pipelines: vec![2],
         color_attachments: vec![Attachment {
             texture: 4,
+            resolve: None,
             clear: Some([0.0, 0.0, 0.0, 1.0]),
             store: true,
         }],

@@ -1,18 +1,20 @@
-# ODC
+mod common;
 
-Simple and fast render engine based on [wgpu](https://github.com/gfx-rs/wgpu) crate.
+use crate::common::DrawDataStorage;
+use common::{mesh, Example};
+use glam::Mat4;
+use odc_core::mdl::Size2d;
+use odc_core::{mdl::RenderModel, DrawData, OdcCore};
 
-## Triangle example
-```rust
-struct Triangle;
+struct MsaaTriangle;
 
-impl Example for Triangle {
+impl Example for MsaaTriangle {
     fn render_model() -> RenderModel {
-        common::models::color_mesh::color_mesh_model()
+        common::models::msaa_color_mesh::msaa_model()
     }
 
     fn windows() -> Vec<(usize, String, Size2d)> {
-        vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
+        vec![(2, "color".into(), Size2d { x: 800, y: 600 })]
     }
 
     fn init(&mut self, renderer: &OdcCore) {
@@ -43,10 +45,5 @@ impl Example for Triangle {
 }
 
 fn main() {
-    common::run_example(Triangle)
+    common::run_example(MsaaTriangle)
 }
-```
-
-## Next steps
-- Sampler UV clamp options.
-- Resource replacement.

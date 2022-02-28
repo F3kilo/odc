@@ -41,7 +41,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -51,7 +51,7 @@ fn textures() -> Vec<Texture> {
         typ: TextureType::Srgb,
         size: atlas_size.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: true,
     };
@@ -164,6 +164,7 @@ fn pipelines() -> Vec<RenderPipeline> {
         blend: vec![Some(BlendState::ALPHA_BLENDING)],
         shader,
         depth: None,
+        multisampled: false,
     };
 
     vec![pipeline]
@@ -174,6 +175,7 @@ fn passes() -> Vec<Pass> {
         pipelines: vec![0],
         color_attachments: vec![Attachment {
             texture: 0,
+            resolve: None,
             clear: Some([0.0, 0.0, 0.0, 0.0]),
             store: true,
         }],

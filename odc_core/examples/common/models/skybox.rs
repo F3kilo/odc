@@ -41,7 +41,7 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: true,
         writable: false,
     };
@@ -55,7 +55,7 @@ fn textures() -> Vec<Texture> {
         typ: TextureType::Srgb,
         size,
         mip_levels: 1,
-        sample_count: 1,
+        multisampled: false,
         window_source: false,
         writable: true,
     };
@@ -103,13 +103,11 @@ fn bind_groups() -> Vec<BindGroup> {
 }
 
 fn pipelines() -> Vec<RenderPipeline> {
-    let attributes = vec![
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: 0,
-            location: 0,
-        },
-    ];
+    let attributes = vec![InputAttribute {
+        item: InputItem::Float32x4,
+        offset: 0,
+        location: 0,
+    }];
     let vertex_buffer = InputInfo {
         attributes,
         stride: VEC4_SIZE,
@@ -137,6 +135,7 @@ fn pipelines() -> Vec<RenderPipeline> {
         blend: vec![None],
         shader,
         depth: None,
+        multisampled: false,
     };
 
     vec![pipeline]
@@ -147,6 +146,7 @@ fn passes() -> Vec<Pass> {
         pipelines: vec![0],
         color_attachments: vec![Attachment {
             texture: 0,
+            resolve: None,
             clear: Some([0.0, 0.0, 0.0, 0.0]),
             store: true,
         }],

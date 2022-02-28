@@ -84,9 +84,7 @@ fn load_image<P: AsRef<Path>>(path: P) -> Vec<u8> {
     let layer_bytes = layer_texels * 4;
     let mut data = Vec::with_capacity(layer_bytes * 6);
 
-    let names = [
-        "posx", "negx", "posy", "negy", "posz", "negz",
-    ];
+    let names = ["posx", "negx", "posy", "negy", "posz", "negz"];
 
     for name in names {
         let mut path = path.as_ref().with_file_name(name);

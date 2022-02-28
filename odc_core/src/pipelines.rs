@@ -15,6 +15,7 @@ pub struct RenderPipelineInfo {
     pub bind_groups: Vec<usize>,
     pub depth_test: bool,
     pub color_targets: Vec<wgpu::ColorTargetState>,
+    pub sample_count: u32,
 }
 
 impl RenderPipelineInfo {
@@ -117,13 +118,18 @@ impl<'a> PipelinesFactory<'a> {
             targets: &info.color_targets,
         });
 
+        let multisample = wgpu::MultisampleState {
+            count: info.sample_count,
+            ..Default::default()
+        };
+
         let descriptor = wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&layout),
             vertex,
             primitive,
             depth_stencil,
-            multisample: Default::default(),
+            multisample,
             fragment,
             multiview: None,
         };
