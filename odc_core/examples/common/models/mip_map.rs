@@ -77,7 +77,10 @@ fn bind_groups() -> Vec<BindGroup> {
     let sprite = Binding {
         index: 1,
         shader_stages: ShaderStages::Fragment,
-        info: TextureInfo { texture: 1 },
+        info: TextureInfo {
+            texture: 1,
+            dimension: TextureViewDimension::D2,
+        },
     };
 
     let sampler = Binding {

@@ -90,7 +90,7 @@ impl OdcCore {
         swapchain.resize(&self.device.device, window_info.size);
 
         let source_texture = &self.resources.textures[source_index];
-        let texture_view = source_texture.create_view();
+        let texture_view = source_texture.create_view(None);
         let format = source_texture.info.format;
         let source = WindowSource {
             texture_view,
@@ -153,7 +153,8 @@ impl OdcCore {
             self.resources.textures[texture_index] = factory.create_texture(info);
             if let Some(windows) = self.texture_windows.get(&texture_index) {
                 for window in windows.iter() {
-                    let source_view = self.resources.textures[texture_index].create_view();
+                    let texture = &self.resources.textures[texture_index];
+                    let source_view = texture.create_view(None);
                     let window = self.windows.get_mut(window).unwrap();
                     window.refresh_bind_group(&self.device.device, &source_view);
                 }
@@ -272,7 +273,10 @@ impl OdcCore {
         pass_info
             .color_attachments
             .iter()
-            .map(|attachment| self.resources.textures[attachment.texture].create_view())
+            .map(|attachment| {
+                let texture = &self.resources.textures[attachment.texture];
+                texture.create_view(None)
+            })
             .collect()
     }
 
@@ -316,7 +320,10 @@ impl OdcCore {
         pass_info
             .depth_attachment
             .as_ref()
-            .map(|attachment| self.resources.textures[attachment.texture].create_view())
+            .map(|attachment| {
+                let texture = &self.resources.textures[attachment.texture];
+                texture.create_view(None)
+            })
     }
 
     fn pass_depth_attachment<'a>(

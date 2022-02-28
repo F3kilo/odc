@@ -71,7 +71,7 @@ impl Binding<TextureBindingInfo> {
         let sample_type = self.info.format.describe().sample_type;
         let ty = wgpu::BindingType::Texture {
             sample_type,
-            view_dimension: wgpu::TextureViewDimension::D2,
+            view_dimension: self.info.dimension,
             multisampled: false,
         };
 
@@ -120,6 +120,7 @@ pub struct UniformBindingInfo {
 pub struct TextureBindingInfo {
     pub texture_index: usize,
     pub format: wgpu::TextureFormat,
+    pub dimension: wgpu::TextureViewDimension,
 }
 
 pub struct SamplerBindingInfo {
@@ -207,7 +208,12 @@ impl<'a> BindGroupFactory<'a> {
     fn texture_views(&self, textures: &[Binding<TextureBindingInfo>]) -> Vec<wgpu::TextureView> {
         textures
             .iter()
-            .map(|b| self.resources.textures[b.info.texture_index].create_view())
+            .map(|b| {
+                let index = b.info.texture_index;
+                let texture = &self.resources.textures[index];
+                let dimension = Some(b.info.dimension);
+                texture.create_view(dimension)
+            })
             .collect()
     }
 

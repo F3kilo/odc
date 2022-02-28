@@ -88,3 +88,41 @@ pub const SPRITE_VERTICES: [SpriteVertex; 4] = [
 ];
 
 pub const SPRITE_INDICES: [u32; 6] = [0, 1, 2, 0, 2, 3];
+
+pub fn skybox_mesh() -> (&'static [VertexPosition], &'static [u32]) {
+    (&SKYBOX_VERTICES, &SKYBOX_INDICES)
+}
+
+pub type VertexPosition = [f32; 4];
+
+const SKYBOX_VERTICES: [VertexPosition; 8] = [
+    [-1.0, 1.0, 1.0, 0.0],   // Front top left
+    [1.0, 1.0, 1.0, 0.0],    // Front top right
+    [-1.0, -1.0, 1.0, 0.0],  // Front bottom left
+    [1.0, -1.0, 1.0, 0.0],   // Front bottom right
+    [-1.0, 1.0, -1.0, 0.0],  // Back top left
+    [1.0, 1.0, -1.0, 0.0],   // Back top right
+    [-1.0, -1.0, -1.0, 0.0], // Back bottom left
+    [1.0, -1.0, -1.0, 0.0],  // Back bottom right
+];
+
+#[rustfmt::skip]
+const SKYBOX_INDICES: [u32; 36] = [
+    0, 1, 2,  // front
+    1, 3, 2, 
+      
+    4, 6, 5,  // back
+    5, 6, 7, 
+      
+    0, 5, 1,  // top
+    0, 4, 5, 
+          
+    2, 7, 6,  // bottom
+    2, 3, 7, 
+          
+    0, 2, 4,  // left
+    4, 2, 6, 
+          
+    1, 5, 3,  // right
+    5, 7, 3,     
+];

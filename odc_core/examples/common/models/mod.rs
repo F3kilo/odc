@@ -7,3 +7,4 @@ pub mod color_mesh;
 pub mod deferred;
 pub mod sprites;
 pub mod mip_map;
+pub mod skybox;

@@ -4,8 +4,11 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn create_view(&self) -> wgpu::TextureView {
-        self.handle.create_view(&Default::default())
+    pub fn create_view(&self, dimension: Option<wgpu::TextureViewDimension>) -> wgpu::TextureView {
+        self.handle.create_view(&wgpu::TextureViewDescriptor {
+            dimension,
+            ..Default::default()
+        })
     }
 }
 

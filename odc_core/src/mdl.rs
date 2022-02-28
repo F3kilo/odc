@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
-pub use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Extent3d, Origin3d};
+pub use wgpu::{
+    BlendComponent, BlendFactor, BlendOperation, BlendState, Extent3d, Origin3d,
+    TextureViewDimension,
+};
 
 #[derive(Debug, Clone)]
 pub struct RenderModel {
@@ -215,6 +218,7 @@ pub struct UniformInfo {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TextureInfo {
     pub texture: usize,
+    pub dimension: TextureViewDimension,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
