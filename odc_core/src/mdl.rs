@@ -74,7 +74,7 @@ impl Pass {
         let color_attachment = self
             .color_attachments
             .iter()
-            .any(|attachment| attachment.texture == index);
+            .any(|attachment| attachment.texture == index || attachment.resolve == Some(index));
 
         let depth_attachment = self
             .depth_attachment
@@ -87,6 +87,7 @@ impl Pass {
 #[derive(Debug, Clone)]
 pub struct Attachment {
     pub texture: usize,
+    pub resolve: Option<usize>,
     pub clear: Option<[f64; 4]>,
     pub store: bool,
 }
@@ -103,6 +104,7 @@ pub struct RenderPipeline {
     pub shader: Shader,
     pub blend: Vec<Option<BlendState>>,
     pub depth: Option<DepthOps>,
+    pub multisampled: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -265,7 +267,7 @@ pub struct Texture {
     pub typ: TextureType,
     pub size: Extent3d,
     pub mip_levels: u32,
-    pub sample_count: u32,
+    pub multisampled: bool,
     pub window_source: bool,
     pub writable: bool,
 }

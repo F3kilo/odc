@@ -4,7 +4,7 @@ use odc_core::mdl::*;
 const UNIFORM_SIZE: u64 = MAT4_SIZE * 2;
 const WINDOW_SIZE: Size2d = Size2d { x: 800, y: 600 };
 
-pub fn color_mesh_model() -> RenderModel {
+pub fn msaa_model() -> RenderModel {
     let buffers = buffers();
     let textures = textures();
     let samplers = vec![];
@@ -41,6 +41,18 @@ fn textures() -> Vec<Texture> {
         },
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
+        multisampled: true,
+        window_source: false,
+        writable: false,
+    };
+
+    let resolve_texture = Texture {
+        typ: TextureType::Color {
+            texel: TexelType::Unorm,
+            texel_count: TexelCount::Four,
+        },
+        size: WINDOW_SIZE.into(),
+        mip_levels: 1,
         multisampled: false,
         window_source: true,
         writable: false,
@@ -50,12 +62,12 @@ fn textures() -> Vec<Texture> {
         typ: TextureType::Depth,
         size: WINDOW_SIZE.into(),
         mip_levels: 1,
-        multisampled: false,
+        multisampled: true,
         window_source: true,
         writable: false,
     };
 
-    vec![color_texture, depth_texture]
+    vec![color_texture, depth_texture, resolve_texture]
 }
 
 fn bind_groups() -> Vec<BindGroup> {
@@ -135,7 +147,7 @@ fn pipelines() -> Vec<RenderPipeline> {
         blend: vec![None],
         shader,
         depth: Some(DepthOps {}),
-        multisampled: false,
+        multisampled: true,
     };
 
     vec![pipeline]
@@ -146,7 +158,7 @@ fn passes() -> Vec<Pass> {
         pipelines: vec![0],
         color_attachments: vec![Attachment {
             texture: 0,
-            resolve: None,
+            resolve: Some(2),
             clear: Some([0.0, 0.0, 0.0, 1.0]),
             store: true,
         }],

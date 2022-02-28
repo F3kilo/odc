@@ -62,11 +62,13 @@ impl<'a> ModelParser<'a> {
                 usages |= wgpu::TextureUsages::COPY_DST;
             }
 
+            let sample_count = if texture_model.multisampled { 4 } else { 1 };
+
             TextureInfo {
                 format: Self::parse_texture_format(texture_model.typ),
                 size: texture_model.size,
                 mip_levels: texture_model.mip_levels,
-                sample_count: texture_model.sample_count,
+                sample_count,
                 usages,
             }
         })
@@ -180,12 +182,15 @@ impl<'a> ModelParser<'a> {
                 fs_main: info.shader.fs_main.clone(),
             };
 
+            let sample_count = if info.multisampled { 4 } else { 1 };
+
             RenderPipelineInfo {
                 shader,
                 input: Self::input_buffers_info(info),
                 bind_groups: info.bind_groups.clone(),
                 depth_test: info.depth.is_some(),
                 color_targets: Self::pipeline_color_targets(model, i),
+                sample_count,
             }
         })
     }

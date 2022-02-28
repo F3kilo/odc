@@ -242,7 +242,7 @@ impl OdcCore {
     }
 
     fn draw_pass(&self, encoder: &mut wgpu::CommandEncoder, step: RenderStep) {
-        let color_views = self.pass_attachment_views(step.pass);
+        let color_views = self.pass_targets(step.pass);
         let color_attachments = self.pass_color_attachments(step.pass, color_views.iter());
 
         let depth_view = self.pass_depth_view(step.pass);
@@ -267,7 +267,7 @@ impl OdcCore {
         self.draw_pipeline(&mut render_pass, step);
     }
 
-    fn pass_attachment_views(&self, pass: usize) -> Vec<wgpu::TextureView> {
+    fn pass_targets(&self, pass: usize) -> Vec<PassTargets> {
         let pass_info = &self.model.passes[pass];
 
         pass_info
@@ -275,7 +275,12 @@ impl OdcCore {
             .iter()
             .map(|attachment| {
                 let texture = &self.resources.textures[attachment.texture];
-                texture.create_view(None)
+                let color = texture.create_view(None);
+                let resolve = attachment.resolve.map(|index| {
+                    let texture = &self.resources.textures[index];
+                    texture.create_view(None)
+                });
+                PassTargets { color, resolve }
             })
             .collect()
     }
@@ -286,13 +291,13 @@ impl OdcCore {
         views: ViewsIter,
     ) -> Vec<wgpu::RenderPassColorAttachment<'a>>
     where
-        ViewsIter: Iterator<Item = &'a wgpu::TextureView>,
+        ViewsIter: Iterator<Item = &'a PassTargets>,
     {
         let pass_info = &self.model.passes[pass];
 
         let attachments_iter = views.zip(pass_info.color_attachments.iter());
         attachments_iter
-            .map(|(view, info)| {
+            .map(|(target, info)| {
                 let load = match info.clear {
                     Some(color) => wgpu::LoadOp::Clear(wgpu::Color {
                         r: color[0],
@@ -304,8 +309,8 @@ impl OdcCore {
                 };
 
                 wgpu::RenderPassColorAttachment {
-                    view,
-                    resolve_target: None,
+                    view: &target.color,
+                    resolve_target: target.resolve.as_ref(),
                     ops: wgpu::Operations {
                         load,
                         store: info.store,
@@ -317,13 +322,10 @@ impl OdcCore {
 
     fn pass_depth_view(&self, pass: usize) -> Option<wgpu::TextureView> {
         let pass_info = &self.model.passes[pass];
-        pass_info
-            .depth_attachment
-            .as_ref()
-            .map(|attachment| {
-                let texture = &self.resources.textures[attachment.texture];
-                texture.create_view(None)
-            })
+        pass_info.depth_attachment.as_ref().map(|attachment| {
+            let texture = &self.resources.textures[attachment.texture];
+            texture.create_view(None)
+        })
     }
 
     fn pass_depth_attachment<'a>(
@@ -453,4 +455,9 @@ pub struct TextureData<'a> {
     pub data: &'a [u8],
     pub bytes_per_row: u32,
     pub rows_per_layer: u32,
+}
+
+struct PassTargets {
+    pub color: wgpu::TextureView,
+    pub resolve: Option<wgpu::TextureView>,
 }
