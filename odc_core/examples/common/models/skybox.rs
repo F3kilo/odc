@@ -4,7 +4,7 @@ use odc_core::mdl::*;
 const UNIFORM_SIZE: u64 = MAT4_SIZE * 2;
 const WINDOW_SIZE: Size2d = Size2d { x: 800, y: 600 };
 
-pub fn sprites_model() -> RenderModel {
+pub fn skybox_model() -> RenderModel {
     let buffers = buffers();
     let textures = textures();
     let samplers = samplers();
@@ -46,22 +46,26 @@ fn textures() -> Vec<Texture> {
         writable: false,
     };
 
-    let atlas_size = Size2d::from((256, 128));
-    let sprite_atlas = Texture {
+    let size = Extent3d {
+        width: 256,
+        height: 256,
+        depth_or_array_layers: 6,
+    };
+    let cubemap = Texture {
         typ: TextureType::Srgb,
-        size: atlas_size.into(),
+        size,
         mip_levels: 1,
         sample_count: 1,
-        window_source: true,
+        window_source: false,
         writable: true,
     };
 
-    vec![color_texture, sprite_atlas]
+    vec![color_texture, cubemap]
 }
 
 fn samplers() -> Vec<Sampler> {
-    let sprite = Sampler::Filter(FilterMode::Linear);
-    vec![sprite]
+    let color = Sampler::Filter(FilterMode::Linear);
+    vec![color]
 }
 
 fn bind_groups() -> Vec<BindGroup> {
@@ -74,12 +78,12 @@ fn bind_groups() -> Vec<BindGroup> {
         },
     };
 
-    let sprite = Binding {
+    let skybox = Binding {
         index: 1,
         shader_stages: ShaderStages::Fragment,
         info: TextureInfo {
             texture: 1,
-            dimension: TextureViewDimension::D2,
+            dimension: TextureViewDimension::Cube,
         },
     };
 
@@ -91,7 +95,7 @@ fn bind_groups() -> Vec<BindGroup> {
 
     let bind_group = BindGroup {
         uniform: Some(uniform),
-        textures: vec![sprite],
+        textures: vec![skybox],
         samplers: vec![sampler],
     };
 
@@ -105,52 +109,21 @@ fn pipelines() -> Vec<RenderPipeline> {
             offset: 0,
             location: 0,
         },
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: VEC4_SIZE,
-            location: 1,
-        },
     ];
     let vertex_buffer = InputInfo {
         attributes,
-        stride: VEC4_SIZE * 2,
+        stride: VEC4_SIZE,
     };
 
-    let attributes = vec![
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: 0,
-            location: 2,
-        },
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: VEC4_SIZE,
-            location: 3,
-        },
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: VEC4_SIZE * 2,
-            location: 4,
-        },
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: VEC4_SIZE * 3,
-            location: 5,
-        },
-        InputAttribute {
-            item: InputItem::Float32x4,
-            offset: VEC4_SIZE * 4,
-            location: 6,
-        },
-    ];
+    let attributes = vec![];
 
     let instance_buffer = InputInfo {
         attributes,
-        stride: MAT4_SIZE + VEC4_SIZE,
+        stride: 0,
     };
 
     let shader = Shader {
-        path: "odc_core/examples/shaders/sprites.wgsl".into(),
+        path: "odc_core/examples/shaders/skybox.wgsl".into(),
         vs_main: "vs_main".into(),
         fs_main: "fs_main".into(),
     };
@@ -161,7 +134,7 @@ fn pipelines() -> Vec<RenderPipeline> {
             instance: instance_buffer,
         }),
         bind_groups: vec![0],
-        blend: vec![Some(BlendState::ALPHA_BLENDING)],
+        blend: vec![None],
         shader,
         depth: None,
     };

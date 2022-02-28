@@ -144,6 +144,7 @@ impl<'a> ModelParser<'a> {
                             model.textures[texture_model.info.texture].typ,
                         ),
                         texture_index: texture_model.info.texture,
+                        dimension: texture_model.info.dimension,
                     },
                 })
                 .collect();

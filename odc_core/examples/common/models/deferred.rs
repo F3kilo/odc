@@ -117,7 +117,10 @@ fn bind_groups() -> Vec<BindGroup> {
     let position_texture = Binding {
         index: 0,
         shader_stages: ShaderStages::Fragment,
-        info: TextureInfo { texture: 0 },
+        info: TextureInfo {
+            texture: 0,
+            dimension: TextureViewDimension::D2,
+        },
     };
 
     let position_sampler = Binding {
@@ -135,13 +138,19 @@ fn bind_groups() -> Vec<BindGroup> {
     let albedo_texture = Binding {
         index: 0,
         shader_stages: ShaderStages::Fragment,
-        info: TextureInfo { texture: 1 },
+        info: TextureInfo {
+            texture: 1,
+            dimension: TextureViewDimension::D2,
+        },
     };
 
     let light_texture = Binding {
         index: 1,
         shader_stages: ShaderStages::Fragment,
-        info: TextureInfo { texture: 2 },
+        info: TextureInfo {
+            texture: 2,
+            dimension: TextureViewDimension::D2,
+        },
     };
 
     let albedo_light_sampler = Binding {
@@ -230,7 +239,7 @@ fn light_pipeline() -> RenderPipeline {
     }];
 
     let vertex_buffer = InputInfo {
-        attributes: attributes.clone(), // TODO: Without it wgpu will skip this buffer and vertex buffer will be used instead instance buffer.
+        attributes, // TODO: Without it wgpu will skip this buffer and vertex buffer will be used instead instance buffer.
         stride: 0,
     };
 

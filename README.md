@@ -50,3 +50,5 @@ fn main() {
 ## Next steps
 - Cube textures.
 - Multisampling?
+- Sampler UV clamp options.
+- Resource replacement.
