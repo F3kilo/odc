@@ -48,5 +48,4 @@ fn main() {
 ```
 
 ## Next steps
-- Sampler UV clamp options.
 - Resource replacement.
