@@ -29,6 +29,16 @@ impl Buffers {
         pass.set_vertex_buffer(0, self.vertex.handle.slice(..));
         pass.set_vertex_buffer(1, self.instance.handle.slice(..));
     }
+
+    pub fn replace(&mut self, typ: BufferType, new_buffer: Buffer) -> Buffer {
+        let buf = match typ {
+            BufferType::Index => &mut self.index,
+            BufferType::Vertex => &mut self.vertex,
+            BufferType::Instance => &mut self.instance,
+            BufferType::Uniform => &mut self.uniform,
+        };
+        std::mem::replace(buf, new_buffer)
+    }
 }
 
 pub struct Buffer {

@@ -3,13 +3,13 @@ mod buffers;
 mod samplers;
 mod textures;
 
-use std::collections::HashMap;
 pub use bind::{
     BindGroupFactory, BindGroupInfo, BindGroups, Binding, SamplerBindingInfo, TextureBindingInfo,
     UniformBindingInfo,
 };
-pub use buffers::{Buffer, BufferInfo, Buffers, BufferType};
+pub use buffers::{Buffer, BufferInfo, BufferType, Buffers};
 pub use samplers::{Sampler, SamplerInfo};
+use std::collections::HashMap;
 pub use textures::{Texture, TextureInfo};
 
 pub struct Resources {
@@ -17,6 +17,56 @@ pub struct Resources {
     pub textures: Vec<Texture>,
     pub samplers: Vec<Sampler>,
     pub stock: Stock,
+}
+
+impl Resources {
+    pub fn insert_stock_buffer(
+        &mut self,
+        device: &wgpu::Device,
+        typ: BufferType,
+        name: String,
+        size: Option<u64>,
+    ) {
+        let mut info = self.buffers.get(typ).info.clone();
+        info.size = size.unwrap_or(info.size);
+        let factory = ResourceFactory::new(device);
+        let new_buffer = factory.create_buffer(info);
+        self.stock.insert_buffer(name, typ, new_buffer)
+    }
+
+    pub fn remove_stock_buffer(&mut self, name: &str) {
+        self.stock.remove_buffer(name);
+    }
+
+    pub fn swap_stock_buffer(&mut self, name: &str) {
+        let (name, (typ, buffer)) = self.stock.remove_buffer(&name);
+        let old_buffer = self.buffers.replace(typ, buffer);
+        self.stock.insert_buffer(name, typ, old_buffer);
+    }
+
+    pub fn insert_stock_texture(
+        &mut self,
+        device: &wgpu::Device,
+        id: usize,
+        name: String,
+        size: Option<wgpu::Extent3d>,
+    ) {
+        let mut info = self.textures[id].info.clone();
+        info.size = size.unwrap_or(info.size);
+        let factory = ResourceFactory::new(device);
+        let new_texture = factory.create_texture(info);
+        self.stock.insert_texture(name, id, new_texture);
+    }
+
+    pub fn swap_stock_texture(&mut self, name: &str) {
+        let (name, (id, texture)) = self.stock.remove_texture(&name);
+        let replaced = std::mem::replace(&mut self.textures[id], texture);
+        self.stock.insert_texture(name, id, replaced);
+    }
+
+    pub fn remove_stock_texture(&mut self, name: &str) {
+        self.stock.remove_texture(name);
+    }
 }
 
 pub struct ResourceFactory<'a> {
@@ -72,18 +122,44 @@ impl<'a> ResourceFactory<'a> {
 
 #[derive(Default)]
 pub struct Stock {
-    pub index: HashMap<String, Buffer>,
-    pub vertex: HashMap<String, Buffer>,
-    pub instance: HashMap<String, Buffer>,
-    pub uniform: HashMap<String, Buffer>,
-    pub terxtures: HashMap<String, Texture>,
+    buffers: HashMap<String, (BufferType, Buffer)>,
+    textures: HashMap<String, (usize, Texture)>,
 }
 
-// #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-// pub enum ResourceType {
-//     IndexBuffer,
-//     VertexBuffer,
-//     InstanceBuffer,
-//     UniformBuffer,
-//     Texture(usize),
-// }
+impl Stock {
+    pub fn buffer_type(&self, name: &str) -> BufferType {
+        self.buffers[name].0
+    }
+
+    pub fn insert_buffer(&mut self, name: String, typ: BufferType, buffer: Buffer) {
+        self.buffers.insert(name, (typ, buffer));
+    }
+
+    pub fn swap_buffer(&mut self, name: &str, buffer: Buffer) -> (BufferType, Buffer) {
+        let mut entry = self.buffers.get_mut(name).unwrap();
+        let replaced = std::mem::replace(&mut entry.1, buffer);
+        (entry.0, replaced)
+    }
+
+    pub fn remove_buffer(&mut self, name: &str) -> (String, (BufferType, Buffer)) {
+        self.buffers.remove_entry(name).unwrap()
+    }
+
+    pub fn texture_id(&self, name: &str) -> usize {
+        self.textures[name].0
+    }
+
+    pub fn insert_texture(&mut self, name: String, id: usize, texture: Texture) {
+        self.textures.insert(name, (id, texture));
+    }
+
+    pub fn swap_texture(&mut self, name: &str, texture: Texture) -> (usize, Texture) {
+        let mut entry = self.textures.get_mut(name).unwrap();
+        let replaced = std::mem::replace(&mut entry.1, texture);
+        (entry.0, replaced)
+    }
+
+    pub fn remove_texture(&mut self, name: &str) -> (String, (usize, Texture)) {
+        self.textures.remove_entry(name).unwrap()
+    }
+}

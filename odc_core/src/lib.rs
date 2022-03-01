@@ -198,6 +198,47 @@ impl OdcCore {
             .write_texture(texture_copy, data.data, layout, texture.size);
     }
 
+    pub fn insert_stock_buffer(&mut self, typ: BufferType, name: String, size: Option<u64>) {
+        self.resources
+            .insert_stock_buffer(&self.device.device, typ, name, size);
+    }
+
+    pub fn swap_stock_buffer(&mut self, name: &str) {
+        self.resources.swap_stock_buffer(name);
+        if self.resources.stock.buffer_type(name) == BufferType::Uniform {
+            let factory = BindGroupFactory::new(&self.device.device, &self.resources);
+            for bind_group in self.model.uniform_bind_groups() {
+                let bind_group = &mut self.bind_groups.0[bind_group];
+                factory.refresh_bind_group(bind_group)
+            }
+        }
+    }
+
+    pub fn remove_stock_buffer(&mut self, name: &str) {
+        self.resources.remove_stock_buffer(name);
+    }
+
+    pub fn insert_stock_texture(&mut self, id: usize, name: String, size: Option<mdl::Extent3d>) {
+        if self.model.has_texture_attachment(id) && size.is_some() {
+            panic!("Can't create stock texture, which used as attachment")
+        }
+        self.resources
+            .insert_stock_texture(&self.device.device, id, name, size);
+    }
+
+    pub fn swap_stock_texture(&mut self, name: &str) {
+        self.resources.swap_stock_texture(name);
+        let id = self.resources.stock.texture_id(name);
+        let factory = BindGroupFactory::new(&self.device.device, &self.resources);
+        for bind_group_index in self.model.texture_bind_groups(id) {
+            factory.refresh_bind_group(&mut self.bind_groups.0[bind_group_index]);
+        }
+    }
+
+    pub fn remove_stock_texture(&mut self, name: &str) {
+        self.resources.remove_stock_texture(name);
+    }
+
     pub fn draw<'a, RenderIter>(&'a self, steps: RenderIter)
     where
         RenderIter: Iterator<Item = RenderStep<'a>>,
