@@ -323,7 +323,7 @@ pub struct Sampler {
 pub enum AddressMode {
     Edge,
     Repeat,
-    MirrorRepeat,
+    Mirror,
 }
 
 impl Default for AddressMode {

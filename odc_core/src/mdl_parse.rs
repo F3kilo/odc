@@ -131,7 +131,7 @@ impl<'a> ModelParser<'a> {
         match mode {
             AddressMode::Edge => wgpu::AddressMode::ClampToEdge,
             AddressMode::Repeat => wgpu::AddressMode::Repeat,
-            AddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+            AddressMode::Mirror => wgpu::AddressMode::MirrorRepeat,
         }
     }
 
