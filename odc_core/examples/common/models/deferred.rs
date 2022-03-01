@@ -95,8 +95,12 @@ fn textures() -> Vec<Texture> {
 }
 
 fn samplers() -> Vec<Sampler> {
-    let position_sampler = Sampler::NonFilter;
-    vec![position_sampler]
+    let typ = SamplerType::NonFilter;
+    let sampler = Sampler {
+        typ,
+        ..Default::default()
+    };
+    vec![sampler]
 }
 
 fn bind_groups() -> Vec<BindGroup> {

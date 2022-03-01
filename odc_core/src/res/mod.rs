@@ -53,6 +53,9 @@ impl<'a> ResourceFactory<'a> {
 
     pub fn create_sampler(&self, info: SamplerInfo) -> Sampler {
         let handle = self.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: info.u_address,
+            address_mode_v: info.v_address,
+            address_mode_w: info.w_address,
             min_filter: info.mode,
             mag_filter: info.mode,
             mipmap_filter: info.mode,

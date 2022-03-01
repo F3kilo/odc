@@ -311,11 +311,38 @@ pub enum TexelCount {
     Four,
 }
 
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Sampler {
+    pub typ: SamplerType,
+    pub u_address: AddressMode,
+    pub v_address: AddressMode,
+    pub w_address: AddressMode,
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Sampler {
+pub enum AddressMode {
+    Edge,
+    Repeat,
+    Mirror,
+}
+
+impl Default for AddressMode {
+    fn default() -> Self {
+        Self::Edge
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SamplerType {
     NonFilter,
     Filter(FilterMode),
     Comparison(CompareMode),
+}
+
+impl Default for SamplerType {
+    fn default() -> Self {
+        Self::NonFilter
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
