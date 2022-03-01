@@ -2,11 +2,10 @@ use crate::gdevice::GfxDevice;
 use crate::mdl_parse::ModelParser;
 use crate::pipelines::PipelinesFactory;
 use crate::res::{BindGroupFactory, BindGroups, Buffers, ResourceFactory, Resources, TextureInfo};
-pub use crate::window::WindowInfo;
-use crate::window::WindowSource;
 use bytemuck::Pod;
 use pipelines::Pipelines;
 use raw_window_handle::HasRawWindowHandle;
+pub use res::BufferType;
 use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::num::NonZeroU32;
@@ -14,6 +13,8 @@ use std::ops::Range;
 use swapchain::Swapchain;
 use wgpu::{Backends, Instance};
 use window::Window;
+pub use window::WindowInfo;
+use window::WindowSource;
 
 mod gdevice;
 pub mod mdl;
@@ -167,30 +168,11 @@ impl OdcCore {
         }
     }
 
-    pub fn write_index(&self, data: &[u32], offset: u64) {
-        let buffer = &self.resources.buffers.index.handle;
-        self.write_buffer(buffer, data, offset)
-    }
-
-    pub fn write_vertex<T: Pod>(&self, data: &[T], offset: u64) {
-        let buffer = &self.resources.buffers.vertex.handle;
-        self.write_buffer(buffer, data, offset)
-    }
-
-    pub fn write_instance<T: Pod>(&self, data: &[T], offset: u64) {
-        let buffer = &self.resources.buffers.instance.handle;
-        self.write_buffer(buffer, data, offset)
-    }
-
-    pub fn write_uniform<T: Pod>(&self, data: &[T], offset: u64) {
-        let buffer = &self.resources.buffers.uniform.handle;
-        self.write_buffer(buffer, data, offset)
-    }
-
-    fn write_buffer<T: Pod>(&self, buffer: &wgpu::Buffer, data: &[T], offset: u64) {
+    pub fn write_buffer<T: Pod>(&self, typ: BufferType, data: &[T], offset: u64) {
+        let buffer = self.resources.buffers.get(typ);
         let data = bytemuck::cast_slice(data);
         let offset = mem::size_of::<T>() as u64 * offset;
-        self.device.queue.write_buffer(buffer, offset, data);
+        self.device.queue.write_buffer(&buffer.handle, offset, data);
     }
 
     pub fn write_texture(&self, texture: TextureWrite, data: TextureData) {
@@ -256,13 +238,7 @@ impl OdcCore {
             depth_stencil_attachment: depth_attachment,
         };
         let mut render_pass = encoder.begin_render_pass(&descriptor);
-
-        let index_buffer = &self.resources.buffers.index.handle;
-        let vertex_buffer = &self.resources.buffers.vertex.handle;
-        let instance_buffer = &self.resources.buffers.instance.handle;
-        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+        self.resources.buffers.bind_buffers(&mut render_pass);
 
         self.draw_pipeline(&mut render_pass, step);
     }
@@ -375,12 +351,7 @@ impl OdcCore {
         let uniform_info = parser.uniform_info();
         let uniform = factory.create_buffer(uniform_info);
 
-        let buffers = Buffers {
-            index,
-            vertex,
-            instance,
-            uniform,
-        };
+        let buffers = Buffers::new(index, vertex, instance, uniform);
 
         let textures = parser
             .textures_info()
@@ -395,8 +366,24 @@ impl OdcCore {
             buffers,
             textures,
             samplers,
+            stock: Default::default(),
         }
     }
+
+    // fn create_stock_resource(&mut self, resource_type: ResourceType, name: String) {
+    //     let factory = ResourceFactory::new(&self.device.device);
+    //
+    //     match resource_type {
+    //         ResourceType::IndexBuffer => {
+    //             let info = self.resources.buffers.index.info.clone();
+    //
+    //         }
+    //         ResourceType::VertexBuffer => {}
+    //         ResourceType::InstanceBuffer => {}
+    //         ResourceType::UniformBuffer => {}
+    //         ResourceType::Texture(_) => {}
+    //     }
+    // }
 
     fn create_bind_groups(
         device: &wgpu::Device,

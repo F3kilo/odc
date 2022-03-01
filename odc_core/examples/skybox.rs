@@ -5,7 +5,7 @@ use common::{mesh, Example};
 use glam::{Mat3, Mat4};
 use image::{EncodableLayout, ImageFormat};
 use odc_core::mdl::{Extent3d, Size2d};
-use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite};
+use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite, BufferType};
 use std::f32::consts::PI;
 use std::fs;
 use std::io::BufReader;
@@ -26,8 +26,8 @@ impl Example for Skybox {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = mesh::skybox_mesh();
-        renderer.write_vertex(vertex_data, 0);
-        renderer.write_index(index_data, 0);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 0);
 
         write_skybox(renderer);
     }
@@ -36,7 +36,7 @@ impl Example for Skybox {
         let angle = self.0.angle();
         let camera = create_camera(angle);
         let ident = Mat4::IDENTITY.to_cols_array_2d();
-        renderer.write_uniform(&[ident, camera.view_proj_transform()], 0);
+        renderer.write_buffer(BufferType::Uniform, &[ident, camera.view_proj_transform()], 0);
     }
 
     fn draw_data(&self) -> Vec<DrawDataStorage> {

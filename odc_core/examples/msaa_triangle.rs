@@ -4,7 +4,7 @@ use crate::common::DrawDataStorage;
 use common::{mesh, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore};
+use odc_core::{mdl::RenderModel, BufferType, DrawData, OdcCore};
 
 struct MsaaTriangle;
 
@@ -19,12 +19,12 @@ impl Example for MsaaTriangle {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = mesh::triangle_mesh();
-        renderer.write_vertex(vertex_data, 0);
-        renderer.write_index(index_data, 0);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 0);
 
         let ident = Mat4::IDENTITY.to_cols_array_2d();
-        renderer.write_uniform(&[ident, ident], 0);
-        renderer.write_instance(&[ident], 0);
+        renderer.write_buffer(BufferType::Uniform, &[ident, ident], 0);
+        renderer.write_buffer(BufferType::Instance, &[ident], 0);
     }
 
     fn update(&mut self, _renderer: &OdcCore) {}

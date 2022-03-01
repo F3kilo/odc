@@ -4,7 +4,7 @@ use crate::common::DrawDataStorage;
 use common::{mesh, Example};
 use glam::{Mat4, Quat};
 use odc_core::mdl::Size2d;
-use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite};
+use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite, BufferType};
 use std::f32::consts::PI;
 use vp_cam::{Camera, CameraBuilder};
 
@@ -21,15 +21,15 @@ impl Example for MipMaps {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = mesh::sprite_mesh();
-        renderer.write_vertex(vertex_data, 0);
-        renderer.write_index(index_data, 0);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 0);
 
         let ident = Mat4::IDENTITY.to_cols_array_2d();
         let camera = create_camera();
-        renderer.write_uniform(&[ident, camera.view_proj_transform()], 0);
+        renderer.write_buffer(BufferType::Uniform, &[ident, camera.view_proj_transform()], 0);
 
         let instance_data = instance_data();
-        renderer.write_instance(&instance_data, 0);
+        renderer.write_buffer(BufferType::Instance, &instance_data, 0);
 
         write_image(renderer);
     }

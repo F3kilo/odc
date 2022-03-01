@@ -5,7 +5,7 @@ use common::{mesh, Example};
 use glam::{Mat4, Quat};
 use image::{EncodableLayout, ImageFormat};
 use odc_core::mdl::Size2d;
-use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite};
+use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite, BufferType};
 use std::fs;
 use std::io::BufReader;
 use std::path::Path;
@@ -23,8 +23,8 @@ impl Example for Sprite {
 
     fn init(&mut self, renderer: &OdcCore) {
         let (vertex_data, index_data) = mesh::sprite_mesh();
-        renderer.write_vertex(vertex_data, 0);
-        renderer.write_index(index_data, 0);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 0);
 
         let planet_transform = Mat4::from_scale_rotation_translation(
             (0.5, 0.5, 1.0).into(),
@@ -48,8 +48,8 @@ impl Example for Sprite {
         instance_data.push(planet_uv_offset_scale);
 
         let ident = Mat4::IDENTITY.to_cols_array_2d();
-        renderer.write_uniform(&[ident, ident], 0);
-        renderer.write_instance(&instance_data, 0);
+        renderer.write_buffer(BufferType::Uniform, &[ident, ident], 0);
+        renderer.write_buffer(BufferType::Instance, &instance_data, 0);
 
         write_images(renderer);
     }

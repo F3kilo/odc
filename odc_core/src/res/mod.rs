@@ -3,11 +3,12 @@ mod buffers;
 mod samplers;
 mod textures;
 
+use std::collections::HashMap;
 pub use bind::{
     BindGroupFactory, BindGroupInfo, BindGroups, Binding, SamplerBindingInfo, TextureBindingInfo,
     UniformBindingInfo,
 };
-pub use buffers::{Buffer, BufferInfo, Buffers};
+pub use buffers::{Buffer, BufferInfo, Buffers, BufferType};
 pub use samplers::{Sampler, SamplerInfo};
 pub use textures::{Texture, TextureInfo};
 
@@ -15,6 +16,7 @@ pub struct Resources {
     pub buffers: Buffers,
     pub textures: Vec<Texture>,
     pub samplers: Vec<Sampler>,
+    pub stock: Stock,
 }
 
 pub struct ResourceFactory<'a> {
@@ -67,3 +69,21 @@ impl<'a> ResourceFactory<'a> {
         Sampler { handle, info }
     }
 }
+
+#[derive(Default)]
+pub struct Stock {
+    pub index: HashMap<String, Buffer>,
+    pub vertex: HashMap<String, Buffer>,
+    pub instance: HashMap<String, Buffer>,
+    pub uniform: HashMap<String, Buffer>,
+    pub terxtures: HashMap<String, Texture>,
+}
+
+// #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+// pub enum ResourceType {
+//     IndexBuffer,
+//     VertexBuffer,
+//     InstanceBuffer,
+//     UniformBuffer,
+//     Texture(usize),
+// }
