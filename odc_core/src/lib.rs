@@ -170,22 +170,28 @@ impl OdcCore {
 
     pub fn write_buffer<T: Pod>(&self, typ: BufferType, data: &[T], offset: u64) {
         let buffer = self.resources.buffers.get(typ);
-        let data = bytemuck::cast_slice(data);
-        let offset = mem::size_of::<T>() as u64 * offset;
-        self.device.queue.write_buffer(&buffer.handle, offset, data);
+        self.write_buffer_inner(&buffer.handle, data, offset)
     }
 
-    pub fn write_texture(&self, write: TextureWrite, data: TextureData) {
-        let tex = &self.resources.textures[write.index];
-        self.write_texture_inner(&tex.handle, write, data)
+    pub fn write_stock_buffer<T: Pod>(&self, name: &str, data: &[T], offset: u64) {
+        let (_, buffer) = self.resources.stock.buffer(name);
+        self.write_buffer_inner(&buffer.handle, data, offset)
+    }
+
+    fn write_buffer_inner<T: Pod>(&self, buffer: &wgpu::Buffer, data: &[T], offset: u64) {
+        let data = bytemuck::cast_slice(data);
+        let offset = mem::size_of::<T>() as u64 * offset;
+        self.device.queue.write_buffer(buffer, offset, data);
+    }
+
+    pub fn write_texture(&self, index: usize, write: TextureWrite, data: TextureData) {
+        let texture = &self.resources.textures[index];
+        self.write_texture_inner(&texture.handle, write, data)
     }
 
     pub fn write_stock_texture(&self, name: &str, write: TextureWrite, data: TextureData) {
-        let id = self.resources.stock.texture_id(name);
-        if id != write.index {
-            panic!("Try to write to texture with wrong id");
-        }
-        self.write_texture_inner(&tex.handle, write, data)
+        let (_, texture) = self.resources.stock.texture(name);
+        self.write_texture_inner(&texture.handle, write, data)
     }
 
     fn write_texture_inner(&self, texture: &wgpu::Texture, write: TextureWrite, data: TextureData) {
@@ -216,7 +222,7 @@ impl OdcCore {
 
     pub fn swap_stock_buffer(&mut self, name: &str) {
         self.resources.swap_stock_buffer(name);
-        if self.resources.stock.buffer_type(name) == BufferType::Uniform {
+        if self.resources.stock.buffer(name).0 == BufferType::Uniform {
             let factory = BindGroupFactory::new(&self.device.device, &self.resources);
             for bind_group in self.model.uniform_bind_groups() {
                 let bind_group = &mut self.bind_groups.0[bind_group];
@@ -239,7 +245,7 @@ impl OdcCore {
 
     pub fn swap_stock_texture(&mut self, name: &str) {
         self.resources.swap_stock_texture(name);
-        let id = self.resources.stock.texture_id(name);
+        let id = self.resources.stock.texture(name).0;
         let factory = BindGroupFactory::new(&self.device.device, &self.resources);
         for bind_group_index in self.model.texture_bind_groups(id) {
             factory.refresh_bind_group(&mut self.bind_groups.0[bind_group_index]);
@@ -483,7 +489,6 @@ pub struct RenderStep<'a> {
 
 #[derive(Debug, Copy, Clone)]
 pub struct TextureWrite {
-    pub index: usize,
     pub mip_level: u32,
     pub offset: mdl::Origin3d,
     pub size: mdl::Extent3d,

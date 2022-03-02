@@ -79,7 +79,6 @@ fn write_images(renderer: &OdcCore) {
         size,
         offset: mdl::Origin3d::ZERO,
         mip_level: 0,
-        index: 1,
     };
 
     let data = TextureData {
@@ -88,7 +87,7 @@ fn write_images(renderer: &OdcCore) {
         rows_per_layer: 0,
     };
 
-    renderer.write_texture(write, data);
+    renderer.write_texture(1, write, data);
 
     let data = load_image("odc_core/examples/data/black_hole.png");
 
@@ -96,7 +95,6 @@ fn write_images(renderer: &OdcCore) {
         size,
         offset: mdl::Origin3d { x: 128, y: 0, z: 0 },
         mip_level: 0,
-        index: 1,
     };
 
     let data = TextureData {
@@ -105,7 +103,7 @@ fn write_images(renderer: &OdcCore) {
         rows_per_layer: 0,
     };
 
-    renderer.write_texture(write, data);
+    renderer.write_texture(1, write, data);
 }
 
 fn load_image<P: AsRef<Path>>(path: P) -> Vec<u8> {

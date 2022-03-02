@@ -66,7 +66,6 @@ fn write_skybox(renderer: &OdcCore) {
         size,
         offset: mdl::Origin3d::ZERO,
         mip_level: 0,
-        index: 1,
     };
 
     let data = TextureData {
@@ -75,7 +74,7 @@ fn write_skybox(renderer: &OdcCore) {
         rows_per_layer: size.height,
     };
 
-    renderer.write_texture(write, data)
+    renderer.write_texture(1, write, data)
 }
 
 fn load_image<P: AsRef<Path>>(path: P) -> Vec<u8> {

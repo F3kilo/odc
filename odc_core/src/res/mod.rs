@@ -39,7 +39,7 @@ impl Resources {
     }
 
     pub fn swap_stock_buffer(&mut self, name: &str) {
-        let (name, (typ, buffer)) = self.stock.remove_buffer(&name);
+        let (name, (typ, buffer)) = self.stock.remove_buffer(name);
         let old_buffer = self.buffers.replace(typ, buffer);
         self.stock.insert_buffer(name, typ, old_buffer);
     }
@@ -51,7 +51,7 @@ impl Resources {
         name: String,
         size: Option<wgpu::Extent3d>,
     ) {
-        let mut info = self.textures[id].info.clone();
+        let mut info = self.textures[id].info;
         info.size = size.unwrap_or(info.size);
         let factory = ResourceFactory::new(device);
         let new_texture = factory.create_texture(info);
@@ -59,7 +59,7 @@ impl Resources {
     }
 
     pub fn swap_stock_texture(&mut self, name: &str) {
-        let (name, (id, texture)) = self.stock.remove_texture(&name);
+        let (name, (id, texture)) = self.stock.remove_texture(name);
         let replaced = std::mem::replace(&mut self.textures[id], texture);
         self.stock.insert_texture(name, id, replaced);
     }
@@ -127,36 +127,24 @@ pub struct Stock {
 }
 
 impl Stock {
-    pub fn buffer_type(&self, name: &str) -> BufferType {
-        self.buffers[name].0
+    pub fn buffer(&self, name: &str) -> &(BufferType, Buffer) {
+        &self.buffers[name]
     }
 
     pub fn insert_buffer(&mut self, name: String, typ: BufferType, buffer: Buffer) {
         self.buffers.insert(name, (typ, buffer));
     }
 
-    pub fn swap_buffer(&mut self, name: &str, buffer: Buffer) -> (BufferType, Buffer) {
-        let mut entry = self.buffers.get_mut(name).unwrap();
-        let replaced = std::mem::replace(&mut entry.1, buffer);
-        (entry.0, replaced)
-    }
-
     pub fn remove_buffer(&mut self, name: &str) -> (String, (BufferType, Buffer)) {
         self.buffers.remove_entry(name).unwrap()
     }
 
-    pub fn texture_id(&self, name: &str) -> usize {
-        self.textures[name].0
+    pub fn texture(&self, name: &str) -> &(usize, Texture) {
+        &self.textures[name]
     }
 
     pub fn insert_texture(&mut self, name: String, id: usize, texture: Texture) {
         self.textures.insert(name, (id, texture));
-    }
-
-    pub fn swap_texture(&mut self, name: &str, texture: Texture) -> (usize, Texture) {
-        let mut entry = self.textures.get_mut(name).unwrap();
-        let replaced = std::mem::replace(&mut entry.1, texture);
-        (entry.0, replaced)
     }
 
     pub fn remove_texture(&mut self, name: &str) -> (String, (usize, Texture)) {

@@ -69,10 +69,9 @@ fn write_image(renderer: &OdcCore) {
             offset: mdl::Origin3d::ZERO,
             mip_level: level,
             size: size.into(),
-            index: 1,
         };
 
-        renderer.write_texture(write, layout);
+        renderer.write_texture(1, write, layout);
     }
 }
 
