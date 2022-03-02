@@ -13,8 +13,8 @@ use winit::window::WindowBuilder;
 pub trait Example {
     fn render_model() -> RenderModel;
     fn windows() -> Vec<(usize, String, Size2d)>;
-    fn init(&mut self, renderer: &OdcCore);
-    fn update(&mut self, renderer: &OdcCore);
+    fn init(&mut self, renderer: &mut OdcCore);
+    fn update(&mut self, renderer: &mut OdcCore);
     fn draw_data(&self) -> Vec<DrawDataStorage>;
 }
 
@@ -50,8 +50,8 @@ pub fn run_example<E: Example + 'static>(mut ex: E) -> ! {
         *flow = ControlFlow::Poll;
         match event {
             Event::NewEvents(cause) => match cause {
-                StartCause::Init => ex.init(&renderer),
-                StartCause::Poll => ex.update(&renderer),
+                StartCause::Init => ex.init(&mut renderer),
+                StartCause::Poll => ex.update(&mut renderer),
                 _ => {}
             },
             Event::WindowEvent {
