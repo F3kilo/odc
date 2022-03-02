@@ -49,3 +49,4 @@ fn main() {
 
 ## Next steps
 - Resource replacement.
+- Conmpute pipeline.

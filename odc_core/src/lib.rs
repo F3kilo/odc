@@ -175,14 +175,25 @@ impl OdcCore {
         self.device.queue.write_buffer(&buffer.handle, offset, data);
     }
 
-    pub fn write_texture(&self, texture: TextureWrite, data: TextureData) {
-        let tex = &self.resources.textures[texture.index];
+    pub fn write_texture(&self, write: TextureWrite, data: TextureData) {
+        let tex = &self.resources.textures[write.index];
+        self.write_texture_inner(&tex.handle, write, data)
+    }
 
+    pub fn write_stock_texture(&self, name: &str, write: TextureWrite, data: TextureData) {
+        let id = self.resources.stock.texture_id(name);
+        if id != write.index {
+            panic!("Try to write to texture with wrong id");
+        }
+        self.write_texture_inner(&tex.handle, write, data)
+    }
+
+    fn write_texture_inner(&self, texture: &wgpu::Texture, write: TextureWrite, data: TextureData) {
         let texture_copy = wgpu::ImageCopyTexture {
-            texture: &tex.handle,
+            texture,
             aspect: wgpu::TextureAspect::All,
-            mip_level: texture.mip_level,
-            origin: texture.offset,
+            mip_level: write.mip_level,
+            origin: write.offset,
         };
 
         let bytes_per_row = NonZeroU32::new(data.bytes_per_row);
@@ -195,7 +206,7 @@ impl OdcCore {
 
         self.device
             .queue
-            .write_texture(texture_copy, data.data, layout, texture.size);
+            .write_texture(texture_copy, data.data, layout, write.size);
     }
 
     pub fn insert_stock_buffer(&mut self, typ: BufferType, name: String, size: Option<u64>) {
