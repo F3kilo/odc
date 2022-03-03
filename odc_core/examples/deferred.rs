@@ -30,7 +30,7 @@ impl Example for InstancesExample {
         ]
     }
 
-    fn init(&mut self, renderer: &OdcCore) {
+    fn init(&mut self, renderer: &mut OdcCore) {
         let triangle_indices = [0, 1, 2];
         renderer.write_buffer(BufferType::Index, &triangle_indices, 0);
 
@@ -42,7 +42,7 @@ impl Example for InstancesExample {
         renderer.write_buffer(BufferType::Instance, &[instance], 0);
     }
 
-    fn update(&mut self, renderer: &OdcCore) {
+    fn update(&mut self, renderer: &mut OdcCore) {
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
         let view_proj = self.0.view_proj_transform();

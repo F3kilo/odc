@@ -6,3 +6,4 @@ cargo run --example sprites
 cargo run --example mip_maps
 cargo run --example skybox
 cargo run --example msaa_triangle
+cargo run --example replacing

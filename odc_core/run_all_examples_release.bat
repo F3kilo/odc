@@ -6,3 +6,4 @@ start "" /wait cargo run --release --example sprites
 start "" /wait cargo run --release --example mip_maps
 start "" /wait cargo run --release --example skybox
 start "" /wait cargo run --release --example msaa_triangle
+start "" /wait cargo run --release --example replacing

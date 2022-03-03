@@ -25,7 +25,7 @@ impl Example for MeshesExample {
         ]
     }
 
-    fn init(&mut self, renderer: &OdcCore) {
+    fn init(&mut self, renderer: &mut OdcCore) {
         let (vertex_data, index_data) = common::mesh::triangle_mesh();
         renderer.write_buffer(BufferType::Index, index_data, 0);
         renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
@@ -54,7 +54,7 @@ impl Example for MeshesExample {
         renderer.write_buffer(BufferType::Uniform, &[world, view_proj], 0);
     }
 
-    fn update(&mut self, _renderer: &OdcCore) {}
+    fn update(&mut self, _renderer: &mut OdcCore) {}
 
     fn draw_data(&self) -> Vec<DrawDataStorage> {
         let draw_triangle = DrawData {

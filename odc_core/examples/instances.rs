@@ -25,7 +25,7 @@ impl Example for InstancesExample {
         vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
     }
 
-    fn init(&mut self, renderer: &OdcCore) {
+    fn init(&mut self, renderer: &mut OdcCore) {
         let (vertex_data, index_data) = common::mesh::triangle_mesh();
         renderer.write_buffer(BufferType::Index, index_data, 0);
         renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
@@ -34,7 +34,7 @@ impl Example for InstancesExample {
         renderer.write_buffer(BufferType::Instance, &instances, 0);
     }
 
-    fn update(&mut self, renderer: &OdcCore) {
+    fn update(&mut self, renderer: &mut OdcCore) {
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
         self.0.set_position(self.1.cam_position());
