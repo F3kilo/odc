@@ -3,7 +3,7 @@ mod common;
 use crate::common::{mesh, models, DrawDataStorage, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, BufferType};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder};
@@ -30,30 +30,30 @@ impl Example for InstancesExample {
         ]
     }
 
-    fn init(&mut self, renderer: &OdcCore) {
+    fn init(&mut self, renderer: &mut OdcCore) {
         let triangle_indices = [0, 1, 2];
-        renderer.write_index(&triangle_indices, 0);
+        renderer.write_buffer(BufferType::Index, &triangle_indices, 0);
 
         let (vertex_data, index_data) = mesh::rectangle_mesh();
-        renderer.write_index(index_data, 3);
-        renderer.write_vertex(vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 3);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
 
         let instance = Mat4::IDENTITY.to_cols_array_2d();
-        renderer.write_instance(&[instance], 0);
+        renderer.write_buffer(BufferType::Instance, &[instance], 0);
     }
 
-    fn update(&mut self, renderer: &OdcCore) {
+    fn update(&mut self, renderer: &mut OdcCore) {
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
         let view_proj = self.0.view_proj_transform();
-        renderer.write_uniform(&[world, view_proj], 0);
+        renderer.write_buffer(BufferType::Uniform, &[world, view_proj], 0);
 
         let angle = self.1.angle();
         let initial_pos = glam::vec4(0.8, 0.0, 0.0, 1.0);
         let light1_pos = glam::Mat4::from_rotation_z(angle) * initial_pos;
         let light2_pos = glam::Mat4::from_rotation_z(angle + 2.0 * PI / 3.0) * initial_pos;
         let light3_pos = glam::Mat4::from_rotation_z(angle + 4.0 * PI / 3.0) * initial_pos;
-        renderer.write_instance(
+        renderer.write_buffer(BufferType::Instance,
             &[
                 light1_pos.to_array(),
                 light2_pos.to_array(),

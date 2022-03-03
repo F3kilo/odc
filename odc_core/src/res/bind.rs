@@ -1,4 +1,4 @@
-use crate::Resources;
+use crate::{BufferType, Resources};
 use std::num::NonZeroU64;
 use wgpu::TextureView;
 
@@ -187,8 +187,8 @@ impl<'a> BindGroupFactory<'a> {
     {
         let mut entries = Vec::with_capacity(info.bindings_count());
         entries.extend(info.uniform.iter().map(|b| {
-            let buffer = &self.resources.buffers.uniform.handle;
-            b.entry(buffer)
+            let buffer = self.resources.buffers.get(BufferType::Uniform);
+            b.entry(&buffer.handle)
         }));
 
         entries.extend(

@@ -48,4 +48,4 @@ fn main() {
 ```
 
 ## Next steps
-- Resource replacement.
+- Compute pipelines.

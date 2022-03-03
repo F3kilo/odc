@@ -5,7 +5,7 @@ use common::{mesh, Example};
 use glam::{Mat3, Mat4};
 use image::{EncodableLayout, ImageFormat};
 use odc_core::mdl::{Extent3d, Size2d};
-use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite};
+use odc_core::{mdl, mdl::RenderModel, DrawData, OdcCore, TextureData, TextureWrite, BufferType};
 use std::f32::consts::PI;
 use std::fs;
 use std::io::BufReader;
@@ -24,19 +24,19 @@ impl Example for Skybox {
         vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
     }
 
-    fn init(&mut self, renderer: &OdcCore) {
+    fn init(&mut self, renderer: &mut OdcCore) {
         let (vertex_data, index_data) = mesh::skybox_mesh();
-        renderer.write_vertex(vertex_data, 0);
-        renderer.write_index(index_data, 0);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 0);
 
         write_skybox(renderer);
     }
 
-    fn update(&mut self, renderer: &OdcCore) {
+    fn update(&mut self, renderer: &mut OdcCore) {
         let angle = self.0.angle();
         let camera = create_camera(angle);
         let ident = Mat4::IDENTITY.to_cols_array_2d();
-        renderer.write_uniform(&[ident, camera.view_proj_transform()], 0);
+        renderer.write_buffer(BufferType::Uniform, &[ident, camera.view_proj_transform()], 0);
     }
 
     fn draw_data(&self) -> Vec<DrawDataStorage> {
@@ -66,7 +66,6 @@ fn write_skybox(renderer: &OdcCore) {
         size,
         offset: mdl::Origin3d::ZERO,
         mip_level: 0,
-        index: 1,
     };
 
     let data = TextureData {
@@ -75,7 +74,7 @@ fn write_skybox(renderer: &OdcCore) {
         rows_per_layer: size.height,
     };
 
-    renderer.write_texture(write, data)
+    renderer.write_texture(1, write, data)
 }
 
 fn load_image<P: AsRef<Path>>(path: P) -> Vec<u8> {

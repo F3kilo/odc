@@ -60,6 +60,26 @@ impl RenderModel {
 
         connected.into_iter()
     }
+
+    pub fn texture_bind_groups(&self, texture: usize) -> HashSet<usize> {
+        self.bind_groups.iter().enumerate().filter_map(|(i, bind_group)| {
+            if bind_group.has_texture(texture) {
+                Some(i)
+            } else {
+                None
+            }
+        }).collect()
+    }
+
+    pub fn uniform_bind_groups(&self) -> HashSet<usize> {
+        self.bind_groups.iter().enumerate().filter_map(|(i, bind_group)| {
+            if bind_group.has_uniform() {
+                Some(i)
+            } else {
+                None
+            }
+        }).collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -178,6 +198,10 @@ pub struct BindGroup {
 }
 
 impl BindGroup {
+    pub fn has_uniform(&self) -> bool {
+        self.uniform.is_some()
+    }
+
     pub fn has_texture(&self, index: usize) -> bool {
         self.textures
             .iter()

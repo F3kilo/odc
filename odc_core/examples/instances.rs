@@ -3,7 +3,7 @@ mod common;
 use crate::common::{DrawDataStorage, Example};
 use glam::Mat4;
 use odc_core::mdl::Size2d;
-use odc_core::{mdl::RenderModel, DrawData, OdcCore};
+use odc_core::{mdl::RenderModel, DrawData, OdcCore, BufferType};
 use std::f32::consts::PI;
 use std::time::Instant;
 use vp_cam::{Camera, CameraBuilder, Vec3};
@@ -25,21 +25,21 @@ impl Example for InstancesExample {
         vec![(0, "color".into(), Size2d { x: 800, y: 600 })]
     }
 
-    fn init(&mut self, renderer: &OdcCore) {
+    fn init(&mut self, renderer: &mut OdcCore) {
         let (vertex_data, index_data) = common::mesh::triangle_mesh();
-        renderer.write_index(index_data, 0);
-        renderer.write_vertex(vertex_data, 0);
+        renderer.write_buffer(BufferType::Index, index_data, 0);
+        renderer.write_buffer(BufferType::Vertex, vertex_data, 0);
 
         let instances = get_instances();
-        renderer.write_instance(&[instances], 0);
+        renderer.write_buffer(BufferType::Instance, &instances, 0);
     }
 
-    fn update(&mut self, renderer: &OdcCore) {
+    fn update(&mut self, renderer: &mut OdcCore) {
         let ident_transform = Mat4::IDENTITY.to_cols_array_2d();
         let world = ident_transform;
         self.0.set_position(self.1.cam_position());
         let view_proj = self.0.view_proj_transform();
-        renderer.write_uniform(&[world, view_proj], 0);
+        renderer.write_buffer(BufferType::Uniform, &[world, view_proj], 0);
     }
 
     fn draw_data(&self) -> Vec<DrawDataStorage> {

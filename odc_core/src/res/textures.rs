@@ -12,6 +12,7 @@ impl Texture {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct TextureInfo {
     pub format: wgpu::TextureFormat,
     pub size: wgpu::Extent3d,
